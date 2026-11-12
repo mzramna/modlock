@@ -1,0 +1,33 @@
+name: Build & Test
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build
+        run: ./gradlew build --no-daemon
+
+      - name: GameTests
+        run: ./gradlew runGameTestServer --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: modlock-${{ github.sha }}
+          path: build/libs/*.jar
+          if-no-files-found: error

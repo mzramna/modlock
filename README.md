@@ -25,6 +25,10 @@ Config: `serverconfig/modlock-server.toml` do mundo (ou `defaultconfigs/` no mod
 
 ## Build e testes
 ```bash
-./gradlew build              # jar em build/libs
+./gradlew build              # jar em build/libs (modlock-<mc>-<versão>.jar)
 ./gradlew runGameTestServer  # GameTests automatizados
 ```
+
+## CI / Releases
+- **Build & Test** (`.github/workflows/build.yml`): roda build + GameTests em todo push e PR; o jar fica como artefato do run.
+- **Release** (`.github/workflows/release.yml`): ao enviar uma tag `v*` (ex.: `v0.1.0+1.21.1`), compila, testa e publica o jar em Releases.
