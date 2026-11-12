@@ -1,3 +1,5 @@
+<img src="docs/icon.png" width="128" alt="ModLock icon" align="right">
+
 # ModLock
 
 [English](README.md) | **Português (Brasil)**
@@ -60,7 +62,7 @@ Escolha inicial de mods no primeiro login e exclusividade → Chave de Mod → e
 ./gradlew runGameTestServer  # GameTests automatizados
 ```
 
-O CI roda build + GameTests em todo push e pull request. Enviar uma tag `v*` publica um release com os jars das duas versões.
+O CI roda build + GameTests em todo push e pull request. Enviar uma tag `v*` (ex.: `v0.1.0`) compila e testa os dois branches e publica um release com os dois jars.
 
 ## Licença
 [MIT](LICENSE)

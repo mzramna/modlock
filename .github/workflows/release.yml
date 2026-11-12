@@ -1,23 +1,41 @@
 name: Release
 
+# Push a tag like v0.1.0 (from any branch). Both Minecraft versions are built
+# from the head of their branches, tested, and attached to the same release.
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to (re)publish"
+        required: true
 
 permissions:
   contents: write
 
 jobs:
-  release:
+  build:
+    name: Build ${{ matrix.branch }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - branch: "1.21.1"
+            java: "21"
+          - branch: "26.1"
+            java: "25"
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.branch }}
 
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "21"
+          java-version: ${{ matrix.java }}
 
       - uses: gradle/actions/setup-gradle@v4
 
@@ -27,8 +45,25 @@ jobs:
       - name: GameTests
         run: ./gradlew runGameTestServer --no-daemon
 
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jar-${{ matrix.branch }}
+          path: build/libs/*.jar
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: jar-*
+          merge-multiple: true
+          path: dist
+
       - uses: softprops/action-gh-release@v2
         with:
-          files: build/libs/*.jar
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          files: dist/*.jar
           generate_release_notes: true
           fail_on_unmatched_files: true

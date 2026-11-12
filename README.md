@@ -1,3 +1,5 @@
+<img src="docs/icon.png" width="128" alt="ModLock icon" align="right">
+
 # ModLock
 
 **English** | [Português (Brasil)](README.pt-BR.md)
@@ -60,7 +62,7 @@ Initial mod choice on first join and exclusivity → Mod Key → temporary knowl
 ./gradlew runGameTestServer  # automated GameTests
 ```
 
-CI runs build + GameTests on every push and pull request. Pushing a `v*` tag publishes a release with the jars of both versions.
+CI runs build + GameTests on every push and pull request. Pushing a `v*` tag (e.g. `v0.1.0`) builds and tests both branches and publishes one release with both jars.
 
 ## License
 [MIT](LICENSE)
