@@ -1,0 +1,10 @@
+{
+  "tooltip.modlock.locked": "🔒 Requires unlocking: %s",
+  "tooltip.modlock.result_locked": "You cannot craft this item by hand",
+  "message.modlock.insert_blocked": "🔒 You cannot put %s in this machine",
+  "message.modlock.usage_blocked": "🔒 You do not have access to %s",
+  "command.modlock.granted": "Granted %s to %s player(s)",
+  "command.modlock.revoked": "Revoked %s from %s player(s)",
+  "command.modlock.list": "%s — mods: %s | items: %s | machines: %s",
+  "command.modlock.reloaded": "ModLock: recipe index cleared and players synced"
+}
