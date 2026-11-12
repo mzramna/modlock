@@ -1,34 +1,66 @@
 # ModLock
 
-Mod para NeoForge que restringe o **craft manual** de itens por mod, por jogador. É pensado para
-modpacks de progressão e séries de interação: cada jogador só crafta à mão os itens dos mods que liberou.
+**English** | [Português (Brasil)](README.pt-BR.md)
 
-| Branch   | Minecraft | NeoForge | Packs |
-|----------|-----------|----------|-------|
-| `1.21.1` | 1.21.1    | 21.1.x   | ATM10, ATM10 Sky, ATM10 Aeronautics, All the Mons |
-| `26.1`   | 26.1.2    | 26.1.x   | ATM11 (port pendente) |
+A NeoForge mod that restricts **hand crafting** of items per mod, per player. Built for progression
+modpacks and interactive series: each player can only hand-craft items from the mods they unlocked.
+Machines and automation are never restricted.
 
-## Etapa 1 (atual)
-- Mesa de craft e grade 2x2: o resultado não aparece se o jogador não tem acesso; aparece uma prévia vermelha com o motivo.
-- Smithing e stonecutter: mesma regra.
-- Fornalha, alto-forno e defumador: aceitam o item, mas não cozinham se **quem colocou o item à mão** não tem acesso. Funil e automação sempre funcionam.
-- Máquinas de outros mods: o jogador não consegue colocar à mão um item cujas receitas (de ingrediente único) só geram itens bloqueados. Se alguma receita gera algo permitido, o item é aceito. Funis e canos nunca são checados.
-- Modo estrito opcional (desligado por padrão): bloqueia usar, colocar e abrir blocos, itens e entidades de mods sem acesso.
-- `always_allowed` / `manual_only` por receita ou item.
-- Comandos (OP nível 2):
-  - `/modlock grant|revoke <jogadores> mod <modid>`
-  - `/modlock grant|revoke <jogadores> item <item>`
-  - `/modlock grant|revoke <jogadores> machine <bloco>`
-  - `/modlock list [jogador]`, `/modlock reload`
+## Downloads
+Grab the jar for your Minecraft version from [Releases](https://github.com/mzramna/modlock/releases/latest):
 
-Config: `serverconfig/modlock-server.toml` do mundo (ou `defaultconfigs/` no modpack). `locked_mods = ["*"]` bloqueia todos os mods, exceto `minecraft` e os de `global_allowed_mods`.
+| Jar                        | Minecraft | NeoForge | Packs |
+|----------------------------|-----------|----------|-------|
+| `modlock-1.21.1-<ver>.jar` | 1.21.1    | 21.1.x   | ATM10, ATM10 To The Sky, ATM10 Aeronautics, All the Mons |
+| `modlock-26.1.2-<ver>.jar` | 26.1.2    | 26.1.x   | ATM11 |
 
-## Build e testes
-```bash
-./gradlew build              # jar em build/libs (modlock-<mc>-<versão>.jar)
-./gradlew runGameTestServer  # GameTests automatizados
+Install it on **both server and clients**.
+
+## Features (stage 1)
+- **Crafting table and 2x2 grid:** the result does not appear if the player has no access to the item's mod; a red preview explains why.
+- **Smithing table and stonecutter:** same rule.
+- **Furnace, blast furnace, smoker:** they accept the item but do not cook when the player who **put it in by hand** has no access. Hoppers and automation always work.
+- **Other mods' machines:** a player cannot put an item in by hand when **every** single-ingredient recipe for it produces something locked. If any recipe produces something allowed, the item is accepted. Pipes and hoppers are never checked.
+- **Optional strict mode** (off by default): also blocks using, placing and opening blocks, items and entities of locked mods.
+- `always_allowed` / `manual_only` lists by recipe id or `item:<id>`.
+- Lock tooltips (also in JEI/EMI), English and Brazilian Portuguese translations.
+
+## Configuration
+File `serverconfig/modlock-server.toml` in the world (or `defaultconfigs/` in a modpack).
+
+| Option | Description |
+|--------|-------------|
+| `locked_mods` | Mods controlled by ModLock. `["*"]` locks every mod except `minecraft` and `global_allowed_mods`. |
+| `global_allowed_mods` | Always allowed for everyone. |
+| `always_allowed` / `manual_only` | Per-recipe exceptions. |
+| `smelting_enabled`, `smithing_and_stonecutter` | Vanilla stations. |
+| `block_manual_insert`, `insert_exempt_blocks` | Machine rule and storage blocks it ignores (also tag `#modlock:insert_exempt`). |
+| `block_usage_of_locked_mods` | Strict mode. |
+
+## Commands (OP level 2)
+```
+/modlock grant|revoke <players> mod <modid>
+/modlock grant|revoke <players> item <item>
+/modlock grant|revoke <players> machine <block>
+/modlock list [player]
+/modlock reload
 ```
 
-## CI / Releases
-- **Build & Test** (`.github/workflows/build.yml`): roda build + GameTests em todo push e PR; o jar fica como artefato do run.
-- **Release** (`.github/workflows/release.yml`): ao enviar uma tag `v*` (ex.: `v0.1.0+1.21.1`), compila, testa e publica o jar em Releases.
+## Roadmap
+Initial mod choice on first join and exclusivity → Mod Key → temporary knowledge effects → Recipe Scroll, Tomes and Machine License → JEI/EMI polish.
+
+## Building
+| Branch   | Java |
+|----------|------|
+| `1.21.1` | 21   |
+| `26.1`   | 25   |
+
+```bash
+./gradlew build              # jar in build/libs
+./gradlew runGameTestServer  # automated GameTests
+```
+
+CI runs build + GameTests on every push and pull request. Pushing a `v*` tag publishes a release with the jars of both versions.
+
+## License
+[MIT](LICENSE)
