@@ -1,25 +1,68 @@
+<img src="docs/icon.png" width="128" alt="ModLock icon" align="right">
 
-Installation information
-=======
+# ModLock
 
-This template repository can be directly cloned to get you started with a new
-mod. Simply create a new repository cloned from this one, by following the
-instructions provided by [GitHub](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-repository-from-a-template).
+**English** | [Português (Brasil)](README.pt-BR.md)
 
-Once you have your clone, simply open the repository in the IDE of your choice. The usual recommendation for an IDE is either IntelliJ IDEA or Eclipse.
+A NeoForge mod that restricts **hand crafting** of items per mod, per player. Built for progression
+modpacks and interactive series: each player can only hand-craft items from the mods they unlocked.
+Machines and automation are never restricted.
 
-If at any point you are missing libraries in your IDE, or you've run into problems you can
-run `gradlew --refresh-dependencies` to refresh the local cache. `gradlew clean` to reset everything 
-{this does not affect your code} and then start the process again.
+## Downloads
+Grab the jar for your Minecraft version from [Releases](https://github.com/mzramna/modlock/releases/latest):
 
-Mapping Names:
-============
-By default, the MDK is configured to use the official mapping names from Mojang for methods and fields 
-in the Minecraft codebase. These names are covered by a specific license. All modders should be aware of this
-license. For the latest license text, refer to the mapping file itself, or the reference copy here:
-https://github.com/NeoForged/NeoForm/blob/main/Mojang.md
+| Jar                        | Minecraft | NeoForge | Packs |
+|----------------------------|-----------|----------|-------|
+| `modlock-1.21.1-<ver>.jar` | 1.21.1    | 21.1.x   | ATM10, ATM10 To The Sky, ATM10 Aeronautics, All the Mons |
+| `modlock-26.1.2-<ver>.jar` | 26.1.2    | 26.1.x   | ATM11 |
 
-Additional Resources: 
-==========
-Community Documentation: https://docs.neoforged.net/  
-NeoForged Discord: https://discord.neoforged.net/
+Install it on **both server and clients**.
+
+## Features (stage 1)
+- **Crafting table and 2x2 grid:** the result does not appear if the player has no access to the item's mod; a red preview explains why.
+- **Smithing table and stonecutter:** same rule.
+- **Furnace, blast furnace, smoker:** they accept the item but do not cook when the player who **put it in by hand** has no access. Hoppers and automation always work.
+- **Other mods' machines:** a player cannot put an item in by hand when **every** single-ingredient recipe for it produces something locked. If any recipe produces something allowed, the item is accepted. Pipes and hoppers are never checked.
+- **Optional strict mode** (off by default): also blocks using, placing and opening blocks, items and entities of locked mods.
+- `always_allowed` / `manual_only` lists by recipe id or `item:<id>`.
+- Lock tooltips (also in JEI/EMI), English and Brazilian Portuguese translations.
+
+## Configuration
+File `serverconfig/modlock-server.toml` in the world (or `defaultconfigs/` in a modpack).
+
+| Option | Description |
+|--------|-------------|
+| `locked_mods` | Mods controlled by ModLock. `["*"]` locks every mod except `minecraft` and `global_allowed_mods`. |
+| `global_allowed_mods` | Always allowed for everyone. |
+| `always_allowed` / `manual_only` | Per-recipe exceptions. |
+| `smelting_enabled`, `smithing_and_stonecutter` | Vanilla stations. |
+| `block_manual_insert`, `insert_exempt_blocks` | Machine rule and storage blocks it ignores (also tag `#modlock:insert_exempt`). |
+| `block_usage_of_locked_mods` | Strict mode. |
+
+## Commands (OP level 2)
+```
+/modlock grant|revoke <players> mod <modid>
+/modlock grant|revoke <players> item <item>
+/modlock grant|revoke <players> machine <block>
+/modlock list [player]
+/modlock reload
+```
+
+## Roadmap
+Initial mod choice on first join and exclusivity → Mod Key → temporary knowledge effects → Recipe Scroll, Tomes and Machine License → JEI/EMI polish.
+
+## Building
+| Branch   | Java |
+|----------|------|
+| `1.21.1` | 21   |
+| `26.1`   | 25   |
+
+```bash
+./gradlew build              # jar in build/libs
+./gradlew runGameTestServer  # automated GameTests
+```
+
+CI runs build + GameTests on every push and pull request. Pushing a `v*` tag publishes a release with the jars of both versions.
+
+## License
+[MIT](LICENSE)

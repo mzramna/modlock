@@ -20,9 +20,11 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      # GameTests will be enabled here once the 26.1 port has code of its own.
       - name: Build
         run: ./gradlew build --no-daemon
+
+      - name: GameTests
+        run: ./gradlew runGameTestServer --no-daemon
 
       - uses: actions/upload-artifact@v4
         with:

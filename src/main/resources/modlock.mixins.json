@@ -1,0 +1,18 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.modlock.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "mixins": [
+    "AbstractContainerMenuMixin",
+    "AbstractFurnaceBlockEntityMixin",
+    "AbstractFurnaceMenuAccessor",
+    "CrafterBlockMixin",
+    "CraftingMenuMixin",
+    "SmithingMenuMixin",
+    "StonecutterMenuMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

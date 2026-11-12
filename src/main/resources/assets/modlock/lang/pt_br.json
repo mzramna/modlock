@@ -1,0 +1,10 @@
+{
+  "tooltip.modlock.locked": "🔒 Requer desbloquear: %s",
+  "tooltip.modlock.result_locked": "Você não pode craftar este item manualmente",
+  "message.modlock.insert_blocked": "🔒 Você não pode colocar %s nesta máquina",
+  "message.modlock.usage_blocked": "🔒 Você não tem acesso a %s",
+  "command.modlock.granted": "%s liberado para %s jogador(es)",
+  "command.modlock.revoked": "%s removido de %s jogador(es)",
+  "command.modlock.list": "%s — mods: %s | itens: %s | máquinas: %s",
+  "command.modlock.reloaded": "ModLock: índice de receitas limpo e jogadores sincronizados"
+}
