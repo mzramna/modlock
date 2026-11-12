@@ -62,7 +62,7 @@ Initial mod choice on first join and exclusivity → Mod Key → temporary knowl
 ./gradlew runGameTestServer  # automated GameTests
 ```
 
-CI runs build + GameTests on every push and pull request. Pushing a `v*` tag (e.g. `v0.1.0`) builds and tests both branches and publishes one release with both jars.
+CI runs build + GameTests on every push and pull request. Pushing a `v*` tag (e.g. `v0.1.0`), or pushing to the `release` branch (tag `v<mod_version>` is created automatically), builds and tests both branches and publishes one release with both jars.
 
 ## License
 [MIT](LICENSE)
