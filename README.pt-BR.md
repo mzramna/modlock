@@ -62,7 +62,7 @@ Escolha inicial de mods no primeiro login e exclusividade → Chave de Mod → e
 ./gradlew runGameTestServer  # GameTests automatizados
 ```
 
-O CI roda build + GameTests em todo push e pull request. Enviar uma tag `v*` (ex.: `v0.1.0`) compila e testa os dois branches e publica um release com os dois jars.
+O CI roda build + GameTests em todo push e pull request. Enviar uma tag `v*` (ex.: `v0.1.0`), ou fazer push no branch `release` (a tag `v<mod_version>` é criada automaticamente), compila e testa os dois branches e publica um release com os dois jars.
 
 ## Licença
 [MIT](LICENSE)

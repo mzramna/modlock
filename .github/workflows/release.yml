@@ -1,10 +1,13 @@
 name: Release
 
-# Push a tag like v0.1.0 (from any branch). Both Minecraft versions are built
-# from the head of their branches, tested, and attached to the same release.
+# Two ways to publish a release (both build + test both Minecraft versions from
+# the head of their branches and attach both jars to the same release):
+#  - push a tag like v0.1.0
+#  - push to the `release` branch: the tag v<mod_version> (gradle.properties) is created automatically
 on:
   push:
     tags: ["v*"]
+    branches: ["release"]
   workflow_dispatch:
     inputs:
       tag:
@@ -55,6 +58,19 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve tag
+        id: tag
+        run: |
+          if [ -n "${{ inputs.tag }}" ]; then
+            echo "name=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "name=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=v$(grep '^mod_version=' gradle.properties | cut -d= -f2)" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/download-artifact@v4
         with:
           pattern: jar-*
@@ -63,7 +79,8 @@ jobs:
 
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.tag || github.ref_name }}
+          tag_name: ${{ steps.tag.outputs.name }}
+          target_commitish: ${{ github.sha }}
           files: dist/*.jar
           generate_release_notes: true
           fail_on_unmatched_files: true
