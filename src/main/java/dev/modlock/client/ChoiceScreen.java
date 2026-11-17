@@ -227,12 +227,13 @@ public class ChoiceScreen extends Screen {
             String cacheKey = o.key() + "#" + java.util.Arrays.hashCode(o.imageBytes());
             return IMAGE_CACHE.computeIfAbsent(cacheKey, k -> {
                 try {
-                    NativeImage image = NativeImage.read(o.imageBytes());
+                    // read(byte[]) copies into the 64 KiB LWJGL stack and crashes on bigger PNGs; the stream overload allocates off-heap
+                    NativeImage image = NativeImage.read(new java.io.ByteArrayInputStream(o.imageBytes()));
                     Identifier rl = Identifier.fromNamespaceAndPath(ModLock.MODID,
                             "choice_image/" + Integer.toHexString(k.hashCode()));
                     Minecraft.getInstance().getTextureManager().register(rl, new DynamicTexture(rl::toString, image));
                     return rl;
-                } catch (Exception e) {
+                } catch (Exception | OutOfMemoryError e) {
                     return null;
                 }
             });
