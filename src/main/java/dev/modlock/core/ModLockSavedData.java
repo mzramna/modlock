@@ -34,12 +34,18 @@ public class ModLockSavedData extends SavedData {
         public final Set<String> mods = new HashSet<>();
         public final Set<Identifier> items = new HashSet<>();
         public final Set<Identifier> machines = new HashSet<>();
+        /** Unlocked bundle ids (resolved dynamically, so new addons are picked up). */
+        public final Set<String> bundles = new HashSet<>();
+        /** RP classes given with /modlock class. */
+        public final Set<String> classes = new HashSet<>();
         public boolean madeInitialChoice;
     }
 
     private final Map<UUID, PlayerData> players = new HashMap<>();
     /** mod id -> owner, used by the exclusivity option (stage 2). */
     private final Map<String, UUID> owners = new HashMap<>();
+    /** key -> owner name, for "taken by" labels. */
+    private final Map<String, String> ownerNames = new HashMap<>();
 
     public static ModLockSavedData get(MinecraftServer server) {
         return server.overworld().getDataStorage().computeIfAbsent(TYPE);
@@ -58,6 +64,10 @@ public class ModLockSavedData extends SavedData {
         return owners;
     }
 
+    public Map<String, String> ownerNames() {
+        return ownerNames;
+    }
+
     // ---- persistence ----
 
     private static ListTag strings(Iterable<?> values) {
@@ -74,6 +84,8 @@ public class ModLockSavedData extends SavedData {
             p.put("mods", strings(d.mods));
             p.put("items", strings(d.items));
             p.put("machines", strings(d.machines));
+            p.put("bundles", strings(d.bundles));
+            p.put("classes", strings(d.classes));
             p.putBoolean("madeInitialChoice", d.madeInitialChoice);
             playersTag.put(id.toString(), p);
         });
@@ -82,6 +94,9 @@ public class ModLockSavedData extends SavedData {
         CompoundTag ownersTag = new CompoundTag();
         owners.forEach((mod, id) -> ownersTag.store(mod, UUIDUtil.CODEC, id));
         tag.put("owners", ownersTag);
+        CompoundTag namesTag = new CompoundTag();
+        ownerNames.forEach(namesTag::putString);
+        tag.put("ownerNames", namesTag);
         return tag;
     }
 
@@ -100,12 +115,16 @@ public class ModLockSavedData extends SavedData {
             forEachString(p.getListOrEmpty("mods"), d.mods::add);
             forEachString(p.getListOrEmpty("items"), v -> addRl(d.items, v));
             forEachString(p.getListOrEmpty("machines"), v -> addRl(d.machines, v));
+            forEachString(p.getListOrEmpty("bundles"), d.bundles::add);
+            forEachString(p.getListOrEmpty("classes"), d.classes::add);
             d.madeInitialChoice = p.getBooleanOr("madeInitialChoice", false);
         }
         CompoundTag ownersTag = tag.getCompoundOrEmpty("owners");
         for (String mod : ownersTag.keySet()) {
             ownersTag.read(mod, UUIDUtil.CODEC).ifPresent(id -> data.owners.put(mod, id));
         }
+        CompoundTag namesTag = tag.getCompoundOrEmpty("ownerNames");
+        for (String k : namesTag.keySet()) namesTag.getString(k).ifPresent(v -> data.ownerNames.put(k, v));
         return data;
     }
 

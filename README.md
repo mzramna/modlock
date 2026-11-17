@@ -27,6 +27,35 @@ Install it on **both server and clients**.
 - `always_allowed` / `manual_only` lists by recipe id or `item:<id>`.
 - Lock tooltips (also in JEI/EMI), English and Brazilian Portuguese translations.
 
+## Mod bundles (0.2.0)
+A bundle unlocks a group of mods at once — e.g. **Create + every Create addon installed on the server**.
+Create one JSON file per bundle in `config/modlock/bundles/<id>.json` (an example, `_example.json.txt`, is generated there):
+
+```jsonc
+{
+  "name": "Create",                 // required
+  "icon": "create:cogwheel",        // optional: item icon
+  "image": "create.png",            // optional: picture for the selection screen (PNG next to this file, ≤256 KiB,
+                                    //           or a resource-pack texture id like "mypack:textures/gui/create.png")
+  "description": "Create and its addons",
+  "mods": ["create"],               // base mods
+  "include_addons": true,           // + every installed mod with a REQUIRED dependency on a member (recursive)
+  "include": [], "exclude": [],
+  "classes": [],                    // RP: only players with one of these classes can use it
+  "closed": false                   // members are denied to everyone outside "classes", whatever else they unlocked
+}
+```
+
+- Addons are resolved when the server starts or on `/modlock reload`, so new addons join the bundle automatically.
+- With `lock_bundle_members = true` (default), addons are locked whenever the bundle's base mod is locked.
+- **Classes (RP servers):** `/modlock class add|remove <players> <class>` or the entity tag `modlock.class.<class>` (works with command blocks and quest mods).
+
+## Starting choice screen
+With `show_selection_screen = true`, players pick `starting_count` entries on first join: bundles their classes can use
+and, if `allow_single_mods = true`, single locked mods. The screen shows each bundle's picture, description and the
+mods it includes. `exclusive = true` lets each entry be picked by only one player. Players reopen it with
+`/modlock choose` until they confirm; OPs reset it with `/modlock resetchoice <players>`.
+
 ## Configuration
 File `serverconfig/modlock-server.toml` in the world (or `defaultconfigs/` in a modpack).
 
@@ -38,18 +67,27 @@ File `serverconfig/modlock-server.toml` in the world (or `defaultconfigs/` in a 
 | `smelting_enabled`, `smithing_and_stonecutter` | Vanilla stations. |
 | `block_manual_insert`, `insert_exempt_blocks` | Machine rule and storage blocks it ignores (also tag `#modlock:insert_exempt`). |
 | `block_usage_of_locked_mods` | Strict mode. |
+| `starting_count`, `show_selection_screen`, `allow_single_mods`, `choosable_mods`, `exclusive`, `announce_choice` | Starting choice. |
+| `lock_bundle_members` | Lock addons of locked bundle bases. |
+| `block_modlock_crafting` | Nobody can craft ModLock items (also automation). |
+| `loot.enabled`, `loot.tome_bundles` | Unlock items in loot chests / only tomes of these bundles (apply once tomes exist). |
 
 ## Commands (OP level 2)
 ```
 /modlock grant|revoke <players> mod <modid>
 /modlock grant|revoke <players> item <item>
 /modlock grant|revoke <players> machine <block>
+/modlock grant|revoke <players> bundle <id>
+/modlock class add|remove <players> <class>
+/modlock bundles [id]
+/modlock resetchoice <players>
 /modlock list [player]
 /modlock reload
 ```
+Any player: `/modlock choose`.
 
 ## Roadmap
-Initial mod choice on first join and exclusivity → Mod Key → temporary knowledge effects → Recipe Scroll, Tomes and Machine License → JEI/EMI polish.
+Mod Key → temporary knowledge effects → Recipe Scroll, Tomes and Machine License → JEI/EMI polish.
 
 ## Building
 | Branch   | Java |

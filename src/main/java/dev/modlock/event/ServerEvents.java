@@ -4,6 +4,8 @@ import dev.modlock.ModLock;
 import dev.modlock.config.ModLockConfig;
 import dev.modlock.core.AccessRules;
 import dev.modlock.core.MachineTracker;
+import dev.modlock.core.ModBundles;
+import dev.modlock.core.StartingChoice;
 import dev.modlock.core.ModNames;
 import dev.modlock.core.RecipeIndex;
 import dev.modlock.net.ModLockNetwork;
@@ -38,8 +40,15 @@ public final class ServerEvents {
     }
 
     @SubscribeEvent
+    public static void onServerStarting(net.neoforged.neoforge.event.server.ServerStartingEvent event) {
+        ModBundles.reload();
+    }
+
+    @SubscribeEvent
     public static void onLogin(PlayerEvent.PlayerLoggedInEvent event) {
-        if (event.getEntity() instanceof ServerPlayer sp) ModLockNetwork.sync(sp);
+        if (!(event.getEntity() instanceof ServerPlayer sp)) return;
+        ModLockNetwork.sync(sp);
+        if (ModLockConfig.showSelection) StartingChoice.offer(sp, false);
     }
 
     @SubscribeEvent
