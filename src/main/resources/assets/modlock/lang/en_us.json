@@ -25,5 +25,5 @@
   "screen.modlock.choice.bundle": "Mod bundle",
   "screen.modlock.choice.mod": "Single mod",
   "screen.modlock.choice.taken": "Already taken by %s",
-  "screen.modlock.choice.members": "Includes %s mods:"
+  "screen.modlock.choice.members": "Mods included (%s):"
 }
