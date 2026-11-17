@@ -34,6 +34,11 @@ public final class ClientEvents {
         String ns = BuiltInRegistries.ITEM.getKey(stack.getItem()).getNamespace();
         event.getToolTip().add(Component.translatable("tooltip.modlock.locked", ModNames.component(ns))
                 .withStyle(ChatFormatting.RED));
+        String bundles = ClientState.bundleHint(ns);
+        if (bundles != null) {
+            event.getToolTip().add(Component.translatable("tooltip.modlock.in_bundle", bundles)
+                    .withStyle(ChatFormatting.GOLD));
+        }
     }
 
     @SubscribeEvent

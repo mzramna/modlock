@@ -22,6 +22,16 @@ public final class ModLockConfig {
     private static final ModConfigSpec.BooleanValue BLOCK_MANUAL_INSERT;
     private static final ModConfigSpec.ConfigValue<List<? extends String>> INSERT_EXEMPT_BLOCKS;
     private static final ModConfigSpec.BooleanValue STRICT_USAGE;
+    private static final ModConfigSpec.BooleanValue LOCK_BUNDLE_MEMBERS;
+    private static final ModConfigSpec.IntValue STARTING_COUNT;
+    private static final ModConfigSpec.BooleanValue SHOW_SELECTION;
+    private static final ModConfigSpec.BooleanValue ALLOW_SINGLE_MODS;
+    private static final ModConfigSpec.ConfigValue<List<? extends String>> CHOOSABLE_MODS;
+    private static final ModConfigSpec.BooleanValue EXCLUSIVE;
+    private static final ModConfigSpec.BooleanValue ANNOUNCE_CHOICE;
+    private static final ModConfigSpec.BooleanValue LOOT_ENABLED;
+    private static final ModConfigSpec.ConfigValue<List<? extends String>> LOOT_TOME_BUNDLES;
+    private static final ModConfigSpec.BooleanValue BLOCK_MODLOCK_CRAFTING;
 
     static {
         ModConfigSpec.Builder b = new ModConfigSpec.Builder();
@@ -83,6 +93,48 @@ public final class ModLockConfig {
                 .define("block_usage_of_locked_mods", false);
         b.pop();
 
+        b.push("starting");
+        STARTING_COUNT = b.comment("How many entries (bundles or single mods) a player picks when starting. 0 = no choice.")
+                .defineInRange("starting_count", 1, 0, 64);
+        SHOW_SELECTION = b.comment(
+                        "Open the selection screen on the player's first join. Players can reopen it with",
+                        "/modlock choose until they confirm; OPs can reset it with /modlock resetchoice.")
+                .define("show_selection_screen", false);
+        ALLOW_SINGLE_MODS = b.comment("Besides bundles, also offer single locked mods in the selection screen.")
+                .define("allow_single_mods", true);
+        CHOOSABLE_MODS = b.comment("Single mods offered (empty = every locked mod).")
+                .defineListAllowEmpty("choosable_mods", List.of(), () -> "", ModLockConfig::isString);
+        EXCLUSIVE = b.comment("Each bundle / single mod can be picked by only one player.")
+                .define("exclusive", false);
+        ANNOUNCE_CHOICE = b.comment("Announce in chat what each player picked.")
+                .define("announce_choice", true);
+        b.pop();
+
+        b.push("loot");
+        LOOT_ENABLED = b.comment(
+                "Unlock items (Pure Tome, etc.) can be found in loot chests. false = never in loot.",
+                "(Takes effect once those items exist; they are not in this version yet.)")
+                .define("enabled", true);
+        LOOT_TOME_BUNDLES = b.comment(
+                "When not empty, only tomes bound to these bundle ids appear in loot (pre-defined bundles).")
+                .defineListAllowEmpty("tome_bundles", List.of(), () -> "", ModLockConfig::isString);
+        b.pop();
+
+        b.push("items");
+        BLOCK_MODLOCK_CRAFTING = b.comment(
+                "Nobody (players or automation) can craft any ModLock item. Use it when unlock items",
+                "should only come from quests, loot or admins.")
+                .define("block_modlock_crafting", false);
+        b.pop();
+
+        b.push("bundles");
+        LOCK_BUNDLE_MEMBERS = b.comment(
+                        "Bundles are defined in config/modlock/bundles/<id>.json (see _example.json.txt there).",
+                        "When true, every member of a bundle (e.g. Create addons) is locked whenever one of the",
+                        "bundle's base mods is locked, even if the addon itself is not in locked_mods.")
+                .define("lock_bundle_members", true);
+        b.pop();
+
         SPEC = b.build();
     }
 
@@ -101,6 +153,16 @@ public final class ModLockConfig {
     public static volatile boolean blockManualInsert = true;
     public static volatile Set<String> insertExemptBlocks = Set.of();
     public static volatile boolean strictUsage = false;
+    public static volatile boolean lockBundleMembers = true;
+    public static volatile int startingCount = 1;
+    public static volatile boolean showSelection = false;
+    public static volatile boolean allowSingleMods = true;
+    public static volatile Set<String> choosableMods = Set.of();
+    public static volatile boolean exclusive = false;
+    public static volatile boolean announceChoice = true;
+    public static volatile boolean lootEnabled = true;
+    public static volatile Set<String> lootTomeBundles = Set.of();
+    public static volatile boolean blockModlockCrafting = false;
 
     public static void bake() {
         Set<String> locked = new HashSet<>(LOCKED_MODS.get());
@@ -114,6 +176,16 @@ public final class ModLockConfig {
         blockManualInsert = BLOCK_MANUAL_INSERT.get();
         insertExemptBlocks = Set.copyOf(INSERT_EXEMPT_BLOCKS.get());
         strictUsage = STRICT_USAGE.get();
+        lockBundleMembers = LOCK_BUNDLE_MEMBERS.get();
+        startingCount = STARTING_COUNT.get();
+        showSelection = SHOW_SELECTION.get();
+        allowSingleMods = ALLOW_SINGLE_MODS.get();
+        choosableMods = Set.copyOf(CHOOSABLE_MODS.get());
+        exclusive = EXCLUSIVE.get();
+        announceChoice = ANNOUNCE_CHOICE.get();
+        lootEnabled = LOOT_ENABLED.get();
+        lootTomeBundles = Set.copyOf(LOOT_TOME_BUNDLES.get());
+        blockModlockCrafting = BLOCK_MODLOCK_CRAFTING.get();
     }
 
     private ModLockConfig() {}

@@ -1,5 +1,6 @@
 package dev.modlock.core;
 
+import java.util.Set;
 import java.util.UUID;
 
 import javax.annotation.Nullable;
@@ -17,24 +18,65 @@ import net.neoforged.neoforge.common.util.FakePlayer;
 /**
  * Single place that decides what a player may craft or use.
  *
- * Order for crafting: always_allowed recipe/item -> global_allowed mod -> mod not locked
- * -> mod unlocked -> item unlocked -> temporary knowledge (stage 4).
+ * Order for crafting: always_allowed recipe/item -> closed bundle denial -> global_allowed mod
+ * -> mod not locked -> mod unlocked -> usable bundle containing the mod -> item unlocked
+ * -> temporary knowledge (stage 4).
  */
 public final class AccessRules {
     private AccessRules() {}
 
     // ---------- mod level ----------
 
-    public static boolean isModLocked(String namespace) {
+    private static boolean isModLockedDirect(String namespace) {
         if (ModLockConfig.globalAllowedMods.contains(namespace)) return false;
         if (ModLockConfig.lockAll) return !"minecraft".equals(namespace);
         return ModLockConfig.lockedMods.contains(namespace);
     }
 
+    /** Locked for players who have not unlocked it (config, bundle membership or closed bundle). */
+    public static boolean isModLocked(String namespace) {
+        if (ModBundles.isClosedMember(namespace)) return true;
+        if (isModLockedDirect(namespace)) return true;
+        if (ModLockConfig.globalAllowedMods.contains(namespace)) return false;
+        return ModLockConfig.lockBundleMembers
+                && ModBundles.isMemberOfLockedBundle(namespace, AccessRules::isModLockedDirect);
+    }
+
+    /**
+     * A closed bundle keeps its mods for its classes only: anyone outside every closed bundle
+     * that contains the mod is denied, whatever else they unlocked.
+     */
+    public static boolean isClosedDenied(MinecraftServer server, UUID player, String namespace) {
+        Set<String> classes = null;
+        boolean anyClosed = false;
+        for (ModBundles.Bundle b : ModBundles.bundlesOf(namespace)) {
+            if (!b.closed()) continue;
+            anyClosed = true;
+            if (classes == null) classes = PlayerClasses.of(server, player);
+            if (PlayerClasses.canUse(classes, b)) return false;
+        }
+        return anyClosed;
+    }
+
+    /** True if one of the player's unlocked bundles, usable by the player's classes, contains the mod. */
+    public static boolean hasBundleAccess(MinecraftServer server, UUID player, String namespace) {
+        ModLockSavedData.PlayerData d = ModLockSavedData.get(server).peek(player);
+        if (d == null || d.bundles.isEmpty()) return false;
+        Set<String> classes = null;
+        for (ModBundles.Bundle b : ModBundles.bundlesOf(namespace)) {
+            if (!d.bundles.contains(b.id())) continue;
+            if (classes == null) classes = PlayerClasses.of(server, player);
+            if (PlayerClasses.canUse(classes, b)) return true;
+        }
+        return false;
+    }
+
     public static boolean hasModAccess(MinecraftServer server, UUID player, String namespace) {
+        if (isClosedDenied(server, player, namespace)) return false;
         if (!isModLocked(namespace)) return true;
         ModLockSavedData.PlayerData d = ModLockSavedData.get(server).peek(player);
         if (d != null && d.mods.contains(namespace)) return true;
+        if (hasBundleAccess(server, player, namespace)) return true;
         return TemporaryKnowledge.hasMod(server, player, namespace);
     }
 
@@ -54,7 +96,13 @@ public final class AccessRules {
     }
 
     public static boolean isManualOnly(@Nullable ResourceLocation recipeId, ItemStack result) {
-        return listMatches(ModLockConfig.manualOnly, recipeId, result);
+        return listMatches(ModLockConfig.manualOnly, recipeId, result) || isModlockItemBlocked(result);
+    }
+
+    /** block_modlock_crafting: no ModLock item can be crafted by anyone, automation included. */
+    public static boolean isModlockItemBlocked(ItemStack result) {
+        return ModLockConfig.blockModlockCrafting && !result.isEmpty()
+                && "modlock".equals(BuiltInRegistries.ITEM.getKey(result.getItem()).getNamespace());
     }
 
     // ---------- crafting ----------
@@ -65,6 +113,7 @@ public final class AccessRules {
      */
     public static boolean canCraft(Player player, @Nullable ResourceLocation recipeId, ItemStack result) {
         if (result.isEmpty()) return true;
+        if (isModlockItemBlocked(result)) return false;
         if (player instanceof FakePlayer) return !isManualOnly(recipeId, result);
         if (player.getServer() == null) return true; // client side: server is authoritative
         return canCraft(player.getServer(), player.getUUID(), recipeId, result);
@@ -73,6 +122,7 @@ public final class AccessRules {
     /** Works for offline players too (used by furnaces). */
     public static boolean canCraft(MinecraftServer server, UUID player, @Nullable ResourceLocation recipeId, ItemStack result) {
         if (result.isEmpty()) return true;
+        if (isModlockItemBlocked(result)) return false;
         if (isAlwaysAllowed(recipeId, result)) return true;
         return hasItemAccess(server, player, result.getItem());
     }
@@ -80,10 +130,11 @@ public final class AccessRules {
     public static boolean hasItemAccess(MinecraftServer server, UUID player, Item item) {
         ResourceLocation id = BuiltInRegistries.ITEM.getKey(item);
         String ns = id.getNamespace();
-        if (!isModLocked(ns)) return true;
+        if (hasModAccess(server, player, ns)) return true;
+        if (isClosedDenied(server, player, ns)) return false;
         ModLockSavedData.PlayerData d = ModLockSavedData.get(server).peek(player);
-        if (d != null && (d.mods.contains(ns) || d.items.contains(id))) return true;
-        return TemporaryKnowledge.hasMod(server, player, ns) || TemporaryKnowledge.hasItem(server, player, id);
+        if (d != null && d.items.contains(id)) return true;
+        return TemporaryKnowledge.hasItem(server, player, id);
     }
 
     // ---------- machines / usage ----------

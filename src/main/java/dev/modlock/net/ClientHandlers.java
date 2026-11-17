@@ -1,6 +1,7 @@
 package dev.modlock.net;
 
 import dev.modlock.client.ClientState;
+import net.neoforged.fml.loading.FMLEnvironment;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 /** Thin indirection so common code never loads client classes directly. */
@@ -13,5 +14,10 @@ final class ClientHandlers {
 
     static void onLockedResult(ModLockNetwork.LockedResultPayload p, IPayloadContext ctx) {
         ctx.enqueueWork(() -> ClientState.setLockedResult(p.containerId(), p.slot(), p.stack()));
+    }
+
+    static void onOpenChoice(ModLockNetwork.OpenChoicePayload p, IPayloadContext ctx) {
+        if (!FMLEnvironment.dist.isClient()) return;
+        ctx.enqueueWork(() -> dev.modlock.client.ChoiceScreen.open(p.count(), p.options()));
     }
 }
