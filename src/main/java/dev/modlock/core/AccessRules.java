@@ -80,6 +80,28 @@ public final class AccessRules {
         return TemporaryKnowledge.hasMod(server, player, namespace);
     }
 
+    /**
+     * Permanent ownership of a mod: unlocked directly or through a usable bundle (not temporary knowledge).
+     * Mods that are not locked are not "owned".
+     */
+    public static boolean ownsModPermanently(MinecraftServer server, UUID player, String namespace) {
+        if (!isModLocked(namespace) || isClosedDenied(server, player, namespace)) return false;
+        ModLockSavedData.PlayerData d = ModLockSavedData.get(server).peek(player);
+        if (d != null && d.mods.contains(namespace)) return true;
+        return hasBundleAccess(server, player, namespace);
+    }
+
+    /** Can craft this item without any temporary knowledge. */
+    public static boolean hasPermanentItemAccess(MinecraftServer server, UUID player, Item item) {
+        ResourceLocation id = BuiltInRegistries.ITEM.getKey(item);
+        String ns = id.getNamespace();
+        if (isClosedDenied(server, player, ns)) return false;
+        if (!isModLocked(ns)) return true;
+        if (ownsModPermanently(server, player, ns)) return true;
+        ModLockSavedData.PlayerData d = ModLockSavedData.get(server).peek(player);
+        return d != null && d.items.contains(id);
+    }
+
     // ---------- recipe matching helpers ----------
 
     private static boolean listMatches(java.util.Set<String> list, @Nullable ResourceLocation recipeId, ItemStack result) {

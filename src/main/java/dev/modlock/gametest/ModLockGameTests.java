@@ -12,6 +12,17 @@ import dev.modlock.core.ModBundles;
 import dev.modlock.core.ModLockSavedData;
 import dev.modlock.core.StartingChoice;
 import dev.modlock.core.RecipeIndex;
+import dev.modlock.core.TemporaryKnowledge;
+import dev.modlock.effect.KnowledgeEffects;
+import dev.modlock.item.ItemConfigs;
+import dev.modlock.item.KeyData;
+import dev.modlock.item.ModLockItems;
+import dev.modlock.item.Redemption;
+import dev.modlock.item.TeachData;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.InteractionHand;
+import net.neoforged.neoforge.common.EffectCures;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -38,6 +49,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 public class ModLockGameTests {
 
     private static void lockVanilla() {
+        resetItemConfig();
         ModBundles.apply(Map.of(), Map.of());
         ModLockConfig.lockBundleMembers = true;
         ModLockConfig.lockedMods = Set.of("minecraft");
@@ -231,6 +243,8 @@ public class ModLockGameTests {
                     "a", def(List.of("minecraft"), false, List.of(), List.of(), false),
                     "b", def(List.of("neoforge"), false, List.of(), List.of(), false)), Map.of());
             var server = h.getLevel().getServer();
+            // the test world is kept between runs: forget owners from previous runs
+            ModLockSavedData.get(server).owners().clear();
             ServerPlayer p1 = h.makeMockServerPlayerInLevel();
             ServerPlayer p2 = h.makeMockServerPlayerInLevel();
             h.assertTrue(StartingChoice.options(server, p1.getUUID()).size() == 2, "two bundles offered");
@@ -250,6 +264,282 @@ public class ModLockGameTests {
         } finally {
             ModLockConfig.exclusive = false;
             ModBundles.apply(Map.of(), Map.of());
+        }
+        h.succeed();
+    }
+
+    // ---------------- unlock items & temporary knowledge ----------------
+
+    private static void resetItemConfig() {
+        ModLockConfig.exclusive = false;
+        ModLockConfig.keyAnnounceRedeem = false;
+        ModLockConfig.blockModlockCrafting = false;
+        ModLockConfig.scrollBlacklistItems = Set.of();
+        ModLockConfig.scrollRestrictedMods = Set.of();
+        ModLockConfig.scrollOpsBypass = true;
+        ModLockConfig.scrollPermanentByNonOp = true;
+        ModLockConfig.tomeRestrictionMode = ModLockConfig.RestrictionMode.BLACKLIST;
+        ModLockConfig.tomeRestrictedMods = Set.of();
+        ModLockConfig.tomeAllowSelfUse = false;
+        ModLockConfig.pureRestrictionMode = ModLockConfig.RestrictionMode.BLACKLIST;
+        ModLockConfig.pureRestrictedMods = Set.of();
+        ModLockConfig.purePermanent = false;
+        ModLockConfig.pureMinutes = 540;
+        ModLockConfig.stackMode = ModLockConfig.StackMode.MAX;
+        ModLockConfig.maxKnowledgeMinutes = 540;
+        ModLockConfig.milkMode = ModLockConfig.MilkMode.PER_ITEM;
+        ModLockConfig.milkUnconfiguredCurable = false;
+    }
+
+    private static ModLockSavedData.PlayerData data(GameTestHelper h, ServerPlayer p) {
+        return ModLockSavedData.get(h.getLevel().getServer()).player(p.getUUID());
+    }
+
+    private static TeachData teach(String target, boolean permanent, int minutes) {
+        return new TeachData(target, permanent, minutes, false, "Tester", "", false, "");
+    }
+
+    @GameTest(template = "empty")
+    public static void keyAllGrantsModsAndBundles(GameTestHelper h) {
+        lockVanilla();
+        ModLockConfig.lockedMods = Set.of("minecraft", "neoforge");
+        ModBundles.apply(Map.of("nf", def(List.of("neoforge"), false, List.of(), List.of(), false)), Map.of());
+        try {
+            ServerPlayer p = h.makeMockServerPlayerInLevel();
+            KeyData key = new KeyData(List.of("minecraft", "bundle:nf"), 1, KeyData.Mode.ALL);
+            h.assertTrue(Redemption.useKey(p, InteractionHand.MAIN_HAND, ItemStack.EMPTY, key), "ALL key should be used up");
+            var d = data(h, p);
+            h.assertTrue(d.mods.contains("minecraft") && d.bundles.contains("nf"), "ALL grants every entry (mod and bundle)");
+            h.assertTrue(craftsPlanks(h, p), "granted mod is craftable");
+            h.assertTrue(!Redemption.useKey(p, InteractionHand.MAIN_HAND, ItemStack.EMPTY, key),
+                    "nothing left -> the key is not used up");
+        } finally {
+            lockVanilla();
+        }
+        h.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void keyRandomGrantsAmount(GameTestHelper h) {
+        lockVanilla();
+        ModLockConfig.lockedMods = Set.of("minecraft", "neoforge");
+        try {
+            ServerPlayer p = h.makeMockServerPlayerInLevel();
+            KeyData key = new KeyData(List.of("minecraft", "neoforge"), 1, KeyData.Mode.RANDOM);
+            h.assertTrue(Redemption.keyCandidates(p, key).size() == 2, "two candidates");
+            h.assertTrue(Redemption.useKey(p, InteractionHand.MAIN_HAND, ItemStack.EMPTY, key), "used up");
+            h.assertTrue(data(h, p).mods.size() == 1, "RANDOM grants exactly amount entries");
+            h.assertTrue(Redemption.keyCandidates(p, key).size() == 1, "one left");
+        } finally {
+            lockVanilla();
+        }
+        h.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void keyAlreadyOwnedIsNotConsumed(GameTestHelper h) {
+        lockVanilla();
+        ServerPlayer p = h.makeMockServerPlayerInLevel();
+        grantVanilla(h, p, true);
+        KeyData key = new KeyData(List.of("minecraft", "neoforge"), 2, KeyData.Mode.ALL);
+        // neoforge is not locked (free) and minecraft is owned
+        h.assertTrue(Redemption.keyCandidates(p, key).isEmpty(), "owned and free mods are not candidates");
+        h.assertTrue(!Redemption.useKey(p, InteractionHand.MAIN_HAND, ItemStack.EMPTY, key), "not used up");
+        h.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void scrollPermanentUnlocksCraft(GameTestHelper h) {
+        lockVanilla();
+        ServerPlayer p = h.makeMockServerPlayerInLevel();
+        h.assertTrue(!craftsPlanks(h, p), "locked before");
+        h.assertTrue(Redemption.useScroll(p, teach("minecraft:oak_planks", true, 1)), "permanent scroll used up");
+        h.assertTrue(data(h, p).items.contains(ResourceLocation.withDefaultNamespace("oak_planks")), "item saved");
+        h.assertTrue(craftsPlanks(h, p), "craftable after the scroll");
+        h.assertTrue(!Redemption.useScroll(p, teach("minecraft:oak_planks", true, 1)), "already known -> not used up");
+        h.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void scrollTemporaryAppliesEffect(GameTestHelper h) {
+        lockVanilla();
+        ServerPlayer p = h.makeMockServerPlayerInLevel();
+        var effect = KnowledgeEffects.recipe(ResourceLocation.withDefaultNamespace("oak_planks"));
+        h.assertTrue(effect != null, "recipe effect registered for minecraft:oak_planks");
+        h.assertTrue(Redemption.useScroll(p, teach("minecraft:oak_planks", false, 5)), "temporary scroll used up");
+        h.assertTrue(p.hasEffect(effect), "effect applied");
+        h.assertTrue(p.getEffect(effect).getDuration() == 5 * 1200, "5 minutes");
+        h.assertTrue(craftsPlanks(h, p), "craftable while the effect lasts");
+        p.removeEffect(effect);
+        h.assertTrue(!craftsPlanks(h, p), "locked again once the effect is gone");
+        h.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void scrollConfigurationIsValidated(GameTestHelper h) {
+        lockVanilla();
+        ServerPlayer p = h.makeMockServerPlayerInLevel();
+        h.assertTrue(!ItemConfigs.canScroll(p, Items.OAK_PLANKS, false, false), "player cannot teach what they cannot craft");
+        h.assertTrue(ItemConfigs.canScroll(p, Items.OAK_PLANKS, true, false), "OP can teach any item of a locked mod");
+        grantVanilla(h, p, true);
+        h.assertTrue(ItemConfigs.canScroll(p, Items.OAK_PLANKS, false, true), "owner can teach it, permanently too");
+        ModLockConfig.scrollBlacklistItems = Set.of("minecraft:oak_planks");
+        h.assertTrue(!ItemConfigs.canScroll(p, Items.OAK_PLANKS, false, false), "blacklisted item refused");
+        h.assertTrue(ItemConfigs.canScroll(p, Items.OAK_PLANKS, true, false), "OPs bypass the blacklist");
+        h.assertTrue(!Redemption.useScroll(h.makeMockServerPlayerInLevel(), teach("minecraft:oak_planks", true, 1)),
+                "blacklisted scroll refused at use");
+        ModLockConfig.scrollBlacklistItems = Set.of();
+        h.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void mundaneTomeNeedsOwnership(GameTestHelper h) {
+        lockVanilla();
+        ServerPlayer p = h.makeMockServerPlayerInLevel();
+        h.assertTrue(!ItemConfigs.canTome(p, "minecraft", false), "non-owner cannot write a tome");
+        h.assertTrue(ItemConfigs.canTome(p, "minecraft", true), "OP can");
+        grantVanilla(h, p, true);
+        h.assertTrue(ItemConfigs.canTome(p, "minecraft", false), "owner can");
+        ModLockConfig.tomeRestrictedMods = Set.of("minecraft");
+        h.assertTrue(!ItemConfigs.canTome(p, "minecraft", false), "blacklisted mod refused");
+        ModLockConfig.tomeRestrictedMods = Set.of();
+
+        ServerPlayer reader = h.makeMockServerPlayerInLevel();
+        TeachData tome = new TeachData("minecraft", false, 10, false, "Owner", p.getUUID().toString(), false, "");
+        h.assertTrue(!Redemption.useTome(p, tome), "the writer cannot read their own tome (allow_self_use=false)");
+        ModLockConfig.tomeRestrictedMods = Set.of("minecraft");
+        h.assertTrue(!Redemption.useTome(reader, tome), "restriction re-checked at use");
+        ModLockConfig.tomeRestrictedMods = Set.of();
+        h.assertTrue(Redemption.useTome(reader, tome), "reader gets the knowledge");
+        h.assertTrue(craftsPlanks(h, reader), "knowledge unlocks crafting");
+        h.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void pureTomeRespectsRestrictions(GameTestHelper h) {
+        lockVanilla();
+        ModLockConfig.lockedMods = Set.of("minecraft", "neoforge");
+        ModLockConfig.purePermanent = true;
+        try {
+            ServerPlayer p = h.makeMockServerPlayerInLevel();
+            h.assertTrue(Redemption.pureCandidates(p).containsAll(List.of("minecraft", "neoforge")), "both offered");
+            ModLockConfig.pureRestrictedMods = Set.of("neoforge");
+            List<String> c = Redemption.pureCandidates(p);
+            h.assertTrue(c.contains("minecraft") && !c.contains("neoforge"), "blacklisted mod not offered");
+            ModLockConfig.pureRestrictionMode = ModLockConfig.RestrictionMode.WHITELIST;
+            c = Redemption.pureCandidates(p);
+            h.assertTrue(c.equals(List.of("neoforge")), "whitelist offers only listed mods");
+            h.assertTrue(Redemption.grantPure(p, "neoforge") && data(h, p).mods.contains("neoforge"), "permanent grant");
+        } finally {
+            lockVanilla();
+        }
+        h.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void pureTomeBoundToBundle(GameTestHelper h) {
+        lockVanilla();
+        ModBundles.apply(Map.of("vb", def(List.of("minecraft"), false, List.of(), List.of(), false),
+                "rp", def(List.of("minecraft"), false, List.of(), List.of("mage"), false)), Map.of());
+        try {
+            ServerPlayer p = h.makeMockServerPlayerInLevel();
+            h.assertTrue(!Redemption.usePureBundle(p, "rp"), "class-restricted bundle refused");
+            ItemStack tome = new ItemStack(ModLockItems.PURE_TOME.get());
+            tome.set(ModLockItems.BUNDLE.get(), "vb");
+            h.assertTrue(Redemption.usePureTome(p, InteractionHand.MAIN_HAND, tome), "bound tome used up");
+            h.assertTrue(p.hasEffect(KnowledgeEffects.knowledge("minecraft")), "member knowledge applied");
+            h.assertTrue(craftsPlanks(h, p), "member craftable");
+            h.assertTrue(!Redemption.usePureBundle(p, "vb"), "same duration again -> no gain, not used up");
+        } finally {
+            lockVanilla();
+        }
+        h.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void milkCuresOnlyCurableKnowledge(GameTestHelper h) {
+        lockVanilla();
+        ServerPlayer p = h.makeMockServerPlayerInLevel();
+        var mc = KnowledgeEffects.knowledge("minecraft");
+        var planks = KnowledgeEffects.recipe(ResourceLocation.withDefaultNamespace("oak_planks"));
+        TemporaryKnowledge.apply(p, mc, 10, true, Component.literal("test"));
+        TemporaryKnowledge.apply(p, planks, 10, false, Component.literal("test"));
+        p.removeEffectsCuredBy(EffectCures.MILK);
+        h.assertTrue(!p.hasEffect(mc), "curable knowledge removed by milk");
+        h.assertTrue(p.hasEffect(planks), "milk-proof knowledge stays");
+        ModLockConfig.milkMode = ModLockConfig.MilkMode.NEVER;
+        h.assertTrue(!TemporaryKnowledge.resolveCurable(true), "global NEVER wins over the item");
+        ModLockConfig.milkMode = ModLockConfig.MilkMode.ALWAYS;
+        h.assertTrue(TemporaryKnowledge.resolveCurable(false), "global ALWAYS wins over the item");
+        ModLockConfig.milkMode = ModLockConfig.MilkMode.PER_ITEM;
+        h.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void knowledgeStacking(GameTestHelper h) {
+        lockVanilla();
+        var mc = KnowledgeEffects.knowledge("minecraft");
+        Component src = Component.literal("test");
+        try {
+            ServerPlayer p = h.makeMockServerPlayerInLevel();
+            ModLockConfig.stackMode = ModLockConfig.StackMode.MAX;
+            h.assertTrue(TemporaryKnowledge.apply(p, mc, 10, true, src) == TemporaryKnowledge.ApplyResult.APPLIED, "applied");
+            h.assertTrue(TemporaryKnowledge.apply(p, mc, 5, true, src) == TemporaryKnowledge.ApplyResult.NO_GAIN, "MAX: shorter -> no gain");
+            h.assertTrue(TemporaryKnowledge.apply(p, mc, 20, false, src) == TemporaryKnowledge.ApplyResult.APPLIED, "MAX: longer applies");
+            h.assertTrue(p.getEffect(mc).getDuration() == 20 * 1200, "MAX keeps the longer");
+            h.assertTrue(!TemporaryKnowledge.isCurable(p.getEffect(mc)), "immune wins");
+
+            ServerPlayer q = h.makeMockServerPlayerInLevel();
+            ModLockConfig.stackMode = ModLockConfig.StackMode.ADD;
+            TemporaryKnowledge.apply(q, mc, 10, false, src);
+            TemporaryKnowledge.apply(q, mc, 5, false, src);
+            h.assertTrue(q.getEffect(mc).getDuration() == 15 * 1200, "ADD sums");
+            ModLockConfig.maxKnowledgeMinutes = 20;
+            TemporaryKnowledge.apply(q, mc, 10, false, src);
+            h.assertTrue(q.getEffect(mc).getDuration() == 20 * 1200, "ADD is capped by max_minutes");
+            h.assertTrue(TemporaryKnowledge.apply(q, mc, 10, false, src) == TemporaryKnowledge.ApplyResult.NO_GAIN, "at cap -> no gain");
+        } finally {
+            lockVanilla();
+        }
+        h.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void machineLicenseAllowsManualInsert(GameTestHelper h) {
+        lockVanilla();
+        ServerPlayer p = h.makeMockServerPlayerInLevel();
+        h.assertTrue(RecipeIndex.manualInsertBlocked(p, Blocks.FURNACE, new ItemStack(Items.RAW_IRON)), "blocked before");
+        h.assertTrue(ItemConfigs.canLicense(p, Blocks.FURNACE, true, true), "OP can license a block entity block");
+        h.assertTrue(!ItemConfigs.canLicense(p, Blocks.STONE, true, true), "not a machine");
+        h.assertTrue(Redemption.useLicense(p, teach("minecraft:furnace", true, 1)), "license used up");
+        h.assertTrue(AccessRules.hasMachineLicense(p, ResourceLocation.withDefaultNamespace("furnace")), "license recorded");
+        h.assertTrue(!RecipeIndex.manualInsertBlocked(p, Blocks.FURNACE, new ItemStack(Items.RAW_IRON)), "allowed with the license");
+        h.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void blockModlockCraftingBlocksScroll(GameTestHelper h) {
+        lockVanilla();
+        ServerPlayer p = h.makeMockServerPlayerInLevel();
+        java.util.function.Supplier<ItemStack> craft = () -> {
+            CraftingMenu menu = new CraftingMenu(1, p.getInventory(), ContainerLevelAccess.create(h.getLevel(), h.absolutePos(BlockPos.ZERO)));
+            String pattern = "PIPILIPIP";
+            for (int i = 0; i < 9; i++) {
+                menu.getSlot(i + 1).set(new ItemStack(switch (pattern.charAt(i)) {
+                    case 'P' -> Items.PAPER;
+                    case 'I' -> Items.INK_SAC;
+                    default -> Items.LAPIS_LAZULI;
+                }));
+            }
+            return menu.getSlot(0).getItem();
+        };
+        try {
+            h.assertTrue(craft.get().is(ModLockItems.RECIPE_SCROLL.get()), "scroll recipe works");
+            ModLockConfig.blockModlockCrafting = true;
+            h.assertTrue(craft.get().isEmpty(), "block_modlock_crafting hides the scroll");
+            h.assertTrue(AccessRules.isModlockItemBlocked(new ItemStack(ModLockItems.RECIPE_SCROLL.get())), "helper agrees");
+        } finally {
+            ModLockConfig.blockModlockCrafting = false;
         }
         h.succeed();
     }

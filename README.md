@@ -103,7 +103,56 @@ Addons are resolved when the server starts or on `/modlock reload`, so new addon
 | `starting_count`, `show_selection_screen`, `allow_single_mods`, `choosable_mods`, `exclusive`, `announce_choice` | Starting choice. |
 | `lock_bundle_members` | Lock the addons of locked bundle bases. |
 | `block_modlock_crafting` | Nobody can craft ModLock items, not even automation. |
-| `loot.enabled`, `loot.tome_bundles` | Unlock items in loot chests (they take effect once the tomes ship). |
+| `loot.enabled`, `loot.chance`, `loot.tome_bundles` | Pure Tomes in loot chests (optionally only tomes bound to these bundles). |
+
+## Items & effects
+
+| | Item | What it does | How to get it |
+|:---:|---|---|---|
+| <img src="docs/items/mod_key.png" width="48"> | **Mod Key** | Unlocks mods or bundles **for good**. Configured by an OP: ALL of the list, CHOOSE N, or RANDOM N. | No recipe: creative, `/modlock give`, quest rewards |
+| <img src="docs/items/recipe_scroll.png" width="48"> | **Recipe Scroll** | Teaches **one item** — permanently or for a while (`Recipe: <item>` effect). Players can sell recipes of mods they own. | Cheap recipe |
+| <img src="docs/items/mundane_tome.png" width="48"> | **Mundane Tome** | **Lends a whole mod** for up to 9 h (`Knowledge: <mod>` effect). Written by the mod's owner or an OP. | Expensive recipe (nether star) |
+| <img src="docs/items/pure_tome.png" width="48"> | **Pure Tome** | Knowledge of **any mod you choose** (or of a pre-defined bundle) for up to 9 h. | Loot chests only (or creative) |
+| <img src="docs/items/machine_license.png" width="48"> | **Machine License** | Lets you use and hand-feed **one machine** of a mod you don't own — permanently or for a while. | Moderate recipe |
+
+<p align="center"><img src="docs/screenshots/creative-tab.png" width="380" alt="ModLock creative tab"></p>
+
+| Configure a Mod Key | Redeem it (CHOOSE) |
+|:---:|:---:|
+| <img src="docs/screenshots/config-mod-key.png" width="420"> | <img src="docs/screenshots/choice-mod-key.png" width="420"> |
+
+| Recipe Scroll | Mundane Tome | Machine License |
+|:---:|:---:|:---:|
+| <img src="docs/screenshots/config-recipe-scroll.png" width="280"> | <img src="docs/screenshots/config-mundane-tome.png" width="280"> | <img src="docs/screenshots/config-machine-license.png" width="280"> |
+| <img src="docs/screenshots/tooltip-recipe-scroll.png" width="280"> | <img src="docs/screenshots/tooltip-mundane-tome.png" width="280"> | <img src="docs/screenshots/tooltip-machine-license.png" width="280"> |
+
+| Effects in the inventory | Effect details | HUD |
+|:---:|:---:|:---:|
+| <img src="docs/screenshots/effects-inventory.png" width="300"> | <img src="docs/screenshots/effect-tooltip.png" width="300"> | <img src="docs/screenshots/effects-hud.png" width="220"> |
+
+### Details
+
+| Item | Configure (first use) | Use |
+|---|---|---|
+| **Mod Key** | OPs (`[mod_key] config_permission_level`) or creative players pick locked mods and bundles (`bundle:<id>`), an amount, a mode (**ALL** / **CHOOSE** / **RANDOM**) and an optional name, then **Lock**. Other players just get a message. OPs can sneak + use to reconfigure. | Grants permanently what the player doesn't own yet (minus free mods and, with `exclusive`, entries taken by others). ALL = everything, RANDOM = N at random, CHOOSE = picker. Used up only after a grant; nothing left = not used up. |
+| **Recipe Scroll** | OPs: any item of a locked mod. Players: only items of locked mods they can craft right now (permanent scrolls need permanent access). Searchable item list, PERMANENT / TEMPORARY, minutes, milk checkbox. | Permanent: the item is unlocked for good. Temporary: a `Recipe: <item>` effect. |
+| **Mundane Tome** | Players: only mods they own **permanently**. OPs: any locked mod (and a shorter duration). | Lends the mod: `Knowledge: <mod>` effect for `duration_minutes` (540). The writer can't read it (`allow_self_use`). |
+| **Pure Tome** | Nothing to configure; can be bound to a bundle. | Unbound: pick any locked mod you don't have. Bound: knowledge of every member of the bundle (if your class can use it). Optionally permanent. |
+| **Machine License** | OPs: any block with a block entity of a locked mod. Players: machines of mods they own permanently. PERMANENT / TEMPORARY like the scroll. | Lets the player put items by hand into that machine (and use it in strict mode). |
+
+**Temporary knowledge** is made of real effects: `modlock:knowledge/<mod>` for every mod, and `modlock:recipe/<mod>/<item>` / `modlock:machine/<mod>/<block>` for the mods in `config/modlock-startup.toml` (`recipe_effect_mods = ["*"]`, keep it identical on server and clients). They show the item or the mod's first item as icon, and their inventory tooltip tells the source, the time left and whether milk removes them. Players get an action-bar warning before they expire, and `/modlock knowledge` lists them. Offline players have no effects, so temporary knowledge does not count for them.
+
+| Option | What it does |
+|---|---|
+| `[items] op_permission_level` | Who counts as OP for scrolls, tomes and licenses (creative always does). |
+| `[mod_key] config_permission_level`, `allow_op_reconfigure`, `announce_redeem` | Mod Key. |
+| `[recipe_scroll] max_temporary_minutes`, `allow_permanent_by_non_op`, `blacklist_items`, `restricted_mods`, `ops_bypass_restrictions` | Recipe Scroll. |
+| `[mundane_tome] duration_minutes`, `op_can_set_duration`, `restriction_mode`, `restricted_mods`, `ops_bypass_restrictions`, `allow_self_use`, `op_tooltip_text` | Mundane Tome. |
+| `[pure_tome] duration_minutes`, `permanent`, `restriction_mode`, `restricted_mods`, `respect_exclusivity` | Pure Tome. |
+| `[machine_license] max_temporary_minutes`, `allow_permanent_by_non_op` | Machine License. |
+| `[temporary_knowledge] stack_mode` (MAX/ADD), `max_minutes`, `warn_before_expire_seconds` | Using a second item for the same knowledge: keep the longer time or add them up. Items that would not add time are not used up. |
+| `[temporary_knowledge.milk] mode` (PER_ITEM/ALWAYS/NEVER), `default_curable`, `unconfigured_curable`, `players_can_choose` | Does milk remove knowledge? |
+| `config/modlock-startup.toml`: `recipe_effect_mods`, `include_minecraft` | Which mods get per-item / per-machine effects. |
 
 ## Commands
 
@@ -114,8 +163,12 @@ Addons are resolved when the server starts or on `/modlock reload`, so new addon
 /modlock resetchoice <players>
 /modlock list [player]
 /modlock reload
+/modlock give <players> key <ALL|CHOOSE|RANDOM> <amount> <mod,bundle:id,...>
+/modlock give <players> pure_tome [bundle]
+/modlock knowledge [player]
+/modlock knowledge clear <player> [effect]
 ```
-Any player can use `/modlock choose` to reopen the choice screen until they confirm.
+Any player can use `/modlock choose` to reopen the choice screen until they confirm, and `/modlock knowledge` to see their own temporary knowledge.
 
 ## FAQ
 
@@ -127,7 +180,7 @@ Any player can use `/modlock choose` to reopen the choice screen until they conf
 
 ## Roadmap
 
-Mod Key (quest reward) → temporary knowledge effects → Recipe Scroll, Tomes and Machine License → JEI/EMI polish.
+JEI/EMI polish.
 
 ## Building
 

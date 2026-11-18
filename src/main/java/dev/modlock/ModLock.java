@@ -2,6 +2,10 @@ package dev.modlock;
 
 import dev.modlock.attach.ModLockAttachments;
 import dev.modlock.config.ModLockConfig;
+import dev.modlock.config.ModLockStartupConfig;
+import dev.modlock.effect.KnowledgeEffects;
+import dev.modlock.item.ModLockItems;
+import dev.modlock.loot.PureTomeLootModifier;
 import dev.modlock.net.ModLockNetwork;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
@@ -17,7 +21,12 @@ public class ModLock {
 
     public ModLock(IEventBus modBus, ModContainer container) {
         container.registerConfig(ModConfig.Type.SERVER, ModLockConfig.SPEC);
+        // STARTUP configs are loaded right here, before the registry events that read them
+        container.registerConfig(ModConfig.Type.STARTUP, ModLockStartupConfig.SPEC, "modlock-startup.toml");
         ModLockAttachments.register(modBus);
+        ModLockItems.register(modBus);
+        PureTomeLootModifier.register(modBus);
+        modBus.addListener(KnowledgeEffects::onRegister);
         modBus.addListener(ModLockNetwork::register);
         modBus.addListener(ModLock::onConfigLoad);
         modBus.addListener(ModLock::onConfigReload);

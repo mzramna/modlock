@@ -22,6 +22,13 @@ public final class ModLockAttachments {
             "furnace_inserter",
             () -> AttachmentType.builder(() -> "").serialize(Codec.STRING, s -> !s.isEmpty()).build());
 
+    /** Where each active knowledge effect came from (sent to its own client by ModLockNetwork.sync). */
+    public static final Supplier<AttachmentType<KnowledgeSources>> KNOWLEDGE_SOURCES = ATTACHMENTS.register(
+            "knowledge_sources",
+            () -> AttachmentType.builder(() -> KnowledgeSources.EMPTY)
+                    .serialize(KnowledgeSources.CODEC, s -> !s.map().isEmpty())
+                    .build());
+
     public static void register(IEventBus modBus) {
         ATTACHMENTS.register(modBus);
     }

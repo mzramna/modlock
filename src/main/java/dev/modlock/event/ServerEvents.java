@@ -6,6 +6,7 @@ import dev.modlock.core.AccessRules;
 import dev.modlock.core.MachineTracker;
 import dev.modlock.core.ModBundles;
 import dev.modlock.core.StartingChoice;
+import dev.modlock.core.TemporaryKnowledge;
 import dev.modlock.core.ModNames;
 import dev.modlock.core.RecipeIndex;
 import dev.modlock.net.ModLockNetwork;
@@ -25,7 +26,10 @@ import net.neoforged.neoforge.common.util.FakePlayer;
 import net.neoforged.neoforge.common.util.TriState;
 import net.neoforged.neoforge.event.OnDatapackSyncEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.neoforged.neoforge.event.entity.living.MobEffectEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerContainerEvent;
+import net.neoforged.neoforge.event.tick.PlayerTickEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
@@ -62,6 +66,33 @@ public final class ServerEvents {
         RecipeIndex.invalidate();
         if (event.getPlayer() != null) ModLockNetwork.sync(event.getPlayer());
         else ModLockNetwork.syncAll(event.getPlayerList().getServer());
+    }
+
+    // ---------- temporary knowledge ----------
+
+    @SubscribeEvent
+    public static void onEffectRemove(MobEffectEvent.Remove event) {
+        TemporaryKnowledge.onRemove(event);
+    }
+
+    @SubscribeEvent
+    public static void onEffectExpired(MobEffectEvent.Expired event) {
+        TemporaryKnowledge.onExpired(event);
+    }
+
+    @SubscribeEvent
+    public static void onEffectAdded(MobEffectEvent.Added event) {
+        TemporaryKnowledge.onAdded(event);
+    }
+
+    @SubscribeEvent
+    public static void onServerTick(ServerTickEvent.Post event) {
+        TemporaryKnowledge.onServerTick(event);
+    }
+
+    @SubscribeEvent
+    public static void onPlayerTick(PlayerTickEvent.Post event) {
+        TemporaryKnowledge.onPlayerTick(event);
     }
 
     // ---------- machine tracking ----------
