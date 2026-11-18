@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "D": "minecraft:diamond_block",
+    "E": "minecraft:emerald_block",
+    "B": "minecraft:book",
+    "N": "minecraft:nether_star"
+  },
+  "pattern": [
+    "DBD",
+    "ENE",
+    "DBD"
+  ],
+  "result": { "count": 1, "id": "modlock:mundane_tome" }
+}

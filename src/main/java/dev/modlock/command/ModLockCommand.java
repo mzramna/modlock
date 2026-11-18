@@ -1,17 +1,25 @@
 package dev.modlock.command;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
 
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 
+import dev.modlock.attach.ModLockAttachments;
 import dev.modlock.core.ModBundles;
+import dev.modlock.core.TemporaryKnowledge;
+import dev.modlock.item.KeyData;
+import dev.modlock.item.ModLockItems;
 import dev.modlock.core.ModLockSavedData;
 import dev.modlock.core.PlayerClasses;
 import dev.modlock.core.StartingChoice;
@@ -27,13 +35,18 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffectUtil;
+import net.minecraft.world.item.ItemStack;
 import net.neoforged.fml.ModList;
 
 /**
  * OP: /modlock grant|revoke &lt;players&gt; mod|item|machine|bundle &lt;id&gt;
  *     /modlock class add|remove &lt;players&gt; &lt;class&gt;
  *     /modlock bundles [id] | list [player] | resetchoice &lt;players&gt; | reload
- * Everyone: /modlock choose (reopens the starting choice while it is not confirmed)
+ *     /modlock give &lt;players&gt; key &lt;ALL|CHOOSE|RANDOM&gt; &lt;amount&gt; &lt;mod,bundle:id,...&gt; | give &lt;players&gt; pure_tome [bundle]
+ *     /modlock knowledge clear &lt;player&gt; [effect] | knowledge &lt;player&gt;
+ * Everyone: /modlock choose (reopens the starting choice while it is not confirmed), /modlock knowledge
  */
 public final class ModLockCommand {
     private ModLockCommand() {}
@@ -68,7 +81,133 @@ public final class ModLockCommand {
                         .then(Commands.argument("player", EntityArgument.player())
                                 .executes(ctx -> list(ctx, EntityArgument.getPlayer(ctx, "player")))))
                 .then(Commands.literal("reload").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
-                        .executes(ModLockCommand::reload)));
+                        .executes(ModLockCommand::reload))
+                .then(Commands.literal("give").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
+                        .then(Commands.argument("players", EntityArgument.players())
+                                .then(Commands.literal("key")
+                                        .then(Commands.argument("mode", StringArgumentType.word()).suggests(KEY_MODES)
+                                                .then(Commands.argument("amount", IntegerArgumentType.integer(1, 64))
+                                                        .then(Commands.argument("entries", StringArgumentType.greedyString())
+                                                                .suggests(KEY_ENTRIES)
+                                                                .executes(ModLockCommand::giveKey)))))
+                                .then(Commands.literal("pure_tome")
+                                        .executes(ctx -> givePureTome(ctx, null))
+                                        .then(Commands.argument("bundle", StringArgumentType.word()).suggests(BUNDLES)
+                                                .executes(ctx -> givePureTome(ctx, StringArgumentType.getString(ctx, "bundle")))))))
+                .then(Commands.literal("knowledge")
+                        .executes(ctx -> knowledge(ctx, ctx.getSource().getPlayerOrException()))
+                        .then(Commands.literal("clear").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
+                                .then(Commands.argument("player", EntityArgument.player())
+                                        .executes(ctx -> clearKnowledge(ctx, null))
+                                        .then(Commands.argument("effect", IdentifierArgument.id()).suggests(ACTIVE_EFFECTS)
+                                                .executes(ctx -> clearKnowledge(ctx, IdentifierArgument.getId(ctx, "effect"))))))
+                        .then(Commands.argument("player", EntityArgument.player()).requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
+                                .executes(ctx -> knowledge(ctx, EntityArgument.getPlayer(ctx, "player"))))));
+    }
+
+    private static final SuggestionProvider<CommandSourceStack> KEY_MODES = (ctx, b) ->
+            SharedSuggestionProvider.suggest(Arrays.stream(KeyData.Mode.values()).map(Enum::name), b);
+
+    /** Suggests the next comma-separated entry (mod ids and bundle:ids). */
+    private static final SuggestionProvider<CommandSourceStack> KEY_ENTRIES = (ctx, b) -> {
+        String rem = b.getRemaining();
+        int comma = rem.lastIndexOf(',');
+        String prefix = comma >= 0 ? rem.substring(0, comma + 1) : "";
+        var sub = b.createOffset(b.getStart() + prefix.length());
+        List<String> all = new ArrayList<>();
+        ModBundles.all().forEach(x -> all.add("bundle:" + x.id()));
+        ModList.get().getMods().forEach(m -> all.add(m.getModId()));
+        return SharedSuggestionProvider.suggest(all, sub);
+    };
+
+    private static final SuggestionProvider<CommandSourceStack> ACTIVE_EFFECTS = (ctx, b) -> {
+        try {
+            ServerPlayer p = EntityArgument.getPlayer(ctx, "player");
+            return SharedSuggestionProvider.suggestResource(TemporaryKnowledge.active(p).stream()
+                    .map(i -> i.getEffect().unwrapKey().map(k -> k.identifier()).orElse(null))
+                    .filter(java.util.Objects::nonNull), b);
+        } catch (CommandSyntaxException e) {
+            return b.buildFuture();
+        }
+    };
+
+    private static void give(ServerPlayer p, ItemStack stack) {
+        if (!p.getInventory().add(stack.copy())) p.drop(stack.copy(), false);
+    }
+
+    private static int giveKey(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        KeyData.Mode mode = KeyData.Mode.parse(StringArgumentType.getString(ctx, "mode")).result().orElse(null);
+        if (mode == null) {
+            ctx.getSource().sendFailure(Component.translatable("command.modlock.invalid_mode",
+                    StringArgumentType.getString(ctx, "mode")));
+            return 0;
+        }
+        int amount = IntegerArgumentType.getInteger(ctx, "amount");
+        List<String> entries = new ArrayList<>();
+        List<String> unknown = new ArrayList<>();
+        for (String raw : StringArgumentType.getString(ctx, "entries").split(",")) {
+            String e = raw.strip();
+            if (e.isEmpty() || entries.contains(e)) continue;
+            boolean ok = e.startsWith("bundle:") ? ModBundles.get(e.substring(7)) != null : ModList.get().isLoaded(e);
+            if (ok) entries.add(e);
+            else unknown.add(e);
+        }
+        if (!unknown.isEmpty() || entries.isEmpty()) {
+            ctx.getSource().sendFailure(Component.translatable("command.modlock.invalid_entries",
+                    unknown.isEmpty() ? "-" : String.join(", ", unknown)));
+            return 0;
+        }
+        ItemStack stack = new ItemStack(ModLockItems.MOD_KEY.get());
+        stack.set(ModLockItems.KEY.get(), new KeyData(entries, amount, mode));
+        return giveAll(ctx, stack);
+    }
+
+    private static int givePureTome(CommandContext<CommandSourceStack> ctx, String bundle) throws CommandSyntaxException {
+        ItemStack stack = new ItemStack(ModLockItems.PURE_TOME.get());
+        if (bundle != null) {
+            if (ModBundles.get(bundle) == null) {
+                ctx.getSource().sendFailure(Component.translatable("command.modlock.unknown_bundle", bundle));
+                return 0;
+            }
+            stack.set(ModLockItems.BUNDLE.get(), bundle);
+        }
+        return giveAll(ctx, stack);
+    }
+
+    private static int giveAll(CommandContext<CommandSourceStack> ctx, ItemStack stack) throws CommandSyntaxException {
+        Collection<ServerPlayer> players = EntityArgument.getPlayers(ctx, "players");
+        for (ServerPlayer p : players) give(p, stack);
+        int n = players.size();
+        ctx.getSource().sendSuccess(() -> Component.translatable("command.modlock.given", stack.getDisplayName(), n), true);
+        return n;
+    }
+
+    private static int knowledge(CommandContext<CommandSourceStack> ctx, ServerPlayer player) {
+        List<MobEffectInstance> active = TemporaryKnowledge.active(player);
+        if (active.isEmpty()) {
+            ctx.getSource().sendSuccess(() -> Component.translatable("command.modlock.knowledge.none", player.getDisplayName()), false);
+            return 0;
+        }
+        ctx.getSource().sendSuccess(() -> Component.translatable("command.modlock.knowledge.header", player.getDisplayName()), false);
+        var sources = player.getData(ModLockAttachments.KNOWLEDGE_SOURCES).map();
+        float tps = ctx.getSource().getServer().tickRateManager().tickrate();
+        for (MobEffectInstance inst : active) {
+            String id = inst.getEffect().unwrapKey().map(k -> k.identifier().toString()).orElse("?");
+            var src = sources.get(id);
+            Component line = Component.translatable("command.modlock.knowledge.line",
+                    inst.getEffect().value().getDisplayName(), MobEffectUtil.formatDuration(inst, 1.0f, tps),
+                    Component.translatable(TemporaryKnowledge.isCurable(player, inst) ? "tooltip.modlock.milk.curable" : "tooltip.modlock.milk.immune"),
+                    src == null ? Component.literal("-") : src.text(), id);
+            ctx.getSource().sendSuccess(() -> line, false);
+        }
+        return active.size();
+    }
+
+    private static int clearKnowledge(CommandContext<CommandSourceStack> ctx, Identifier effect) throws CommandSyntaxException {
+        ServerPlayer player = EntityArgument.getPlayer(ctx, "player");
+        int n = TemporaryKnowledge.clear(player, effect);
+        ctx.getSource().sendSuccess(() -> Component.translatable("command.modlock.knowledge.cleared", n, player.getDisplayName()), true);
+        return n;
     }
 
     private static LiteralArgumentBuilder<CommandSourceStack> classChange(String name, boolean add) {

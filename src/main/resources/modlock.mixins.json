@@ -7,6 +7,7 @@
     "AbstractContainerMenuMixin",
     "AbstractFurnaceBlockEntityMixin",
     "AbstractFurnaceMenuAccessor",
+    "ClearAllStatusEffectsConsumeEffectMixin",
     "CrafterBlockMixin",
     "CraftingMenuMixin",
     "SmithingMenuMixin",

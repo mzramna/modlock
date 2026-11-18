@@ -26,13 +26,15 @@ import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 
 /**
- * Starting choice: list of bundles / single mods on the left, details of the highlighted one on the
- * right (picture, description, mods it contains). The player marks exactly {@code count} entries.
+ * Generic "pick N of M" screen: list of bundles / single mods on the left, details of the highlighted one on
+ * the right (picture, description, mods it contains). The player marks exactly {@code count} entries.
+ * Used by the starting choice, CHOOSE Mod Keys and unbound Pure Tomes (purpose); the server re-validates.
  */
 public class ChoiceScreen extends Screen {
     private static final int ROW = 22;
     private static final Map<String, Identifier> IMAGE_CACHE = new HashMap<>();
 
+    private final String purpose;
     private final int count;
     private final List<StartingChoice.Option> options;
     private final Set<String> picked = new LinkedHashSet<>();
@@ -42,8 +44,10 @@ public class ChoiceScreen extends Screen {
 
     private int listX, listY, listW, listH, detailX, detailW;
 
-    public ChoiceScreen(int count, List<StartingChoice.Option> options) {
-        super(Component.translatable("screen.modlock.choice.title"));
+    public ChoiceScreen(String purpose, int count, List<StartingChoice.Option> options) {
+        super(Component.translatable(StartingChoice.PURPOSE.equals(purpose)
+                ? "screen.modlock.choice.title" : "screen.modlock.choice.title." + purpose));
+        this.purpose = purpose;
         this.count = count;
         this.options = new ArrayList<>(options);
         for (int i = 0; i < this.options.size(); i++) {
@@ -54,8 +58,8 @@ public class ChoiceScreen extends Screen {
         }
     }
 
-    public static void open(int count, List<StartingChoice.Option> options) {
-        Minecraft.getInstance().setScreen(new ChoiceScreen(count, options));
+    public static void open(String purpose, int count, List<StartingChoice.Option> options) {
+        Minecraft.getInstance().setScreen(new ChoiceScreen(purpose, count, options));
     }
 
     @Override
@@ -79,7 +83,7 @@ public class ChoiceScreen extends Screen {
 
     private void submit() {
         if (picked.size() != count) return;
-        ClientPacketDistributor.sendToServer(new ModLockNetwork.ChoiceAnswerPayload(new ArrayList<>(picked)));
+        ClientPacketDistributor.sendToServer(new ModLockNetwork.ChoiceAnswerPayload(purpose, new ArrayList<>(picked)));
         onClose();
     }
 

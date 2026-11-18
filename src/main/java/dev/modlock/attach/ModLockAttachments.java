@@ -23,6 +23,16 @@ public final class ModLockAttachments {
             "furnace_inserter",
             () -> AttachmentType.builder(() -> "").serialize(Codec.STRING.fieldOf("inserter"), s -> !s.isEmpty()).build());
 
+    /**
+     * Where each active knowledge effect came from (sent to its own client by ModLockNetwork.sync), and its
+     * milk setting (26.1 has no effect cures). Stored as {sources: {...}} (MapCodec attachments).
+     */
+    public static final Supplier<AttachmentType<KnowledgeSources>> KNOWLEDGE_SOURCES = ATTACHMENTS.register(
+            "knowledge_sources",
+            () -> AttachmentType.builder(() -> KnowledgeSources.EMPTY)
+                    .serialize(KnowledgeSources.CODEC.fieldOf("sources"), s -> !s.map().isEmpty())
+                    .build());
+
     public static void register(IEventBus modBus) {
         ATTACHMENTS.register(modBus);
     }

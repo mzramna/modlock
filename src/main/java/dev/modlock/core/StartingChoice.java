@@ -35,6 +35,9 @@ public final class StartingChoice {
     public record Option(String key, String name, String description, String icon, String image,
                          byte[] imageBytes, List<String> members, String takenBy) {}
 
+    /** Picker purpose of the starting choice. */
+    public static final String PURPOSE = "start";
+
     private StartingChoice() {}
 
     public static int count() {
@@ -51,25 +54,30 @@ public final class StartingChoice {
         for (ModBundles.Bundle b : ModBundles.all()) {
             if (!PlayerClasses.canUse(classes, b)) continue;
             if (d != null && d.bundles.contains(b.id())) continue;
-            String key = "bundle:" + b.id();
-            List<String> names = b.members().stream().map(ModNames::displayName).sorted().toList();
-            out.add(new Option(key, b.name(), b.description(), b.icon() == null ? "" : b.icon(),
-                    b.imageFile() == null && b.image() != null ? b.image() : "",
-                    imageBytes(b), names, takenBy(data, key, player)));
+            out.add(bundleOption(b, takenBy(data, "bundle:" + b.id(), player)));
         }
 
         if (ModLockConfig.allowSingleMods) {
             for (String mod : choosableMods()) {
                 if (AccessRules.hasModAccess(server, player, mod)) continue;
                 if (AccessRules.isClosedDenied(server, player, mod)) continue;
-                String key = "mod:" + mod;
-                String desc = ModList.get().getModContainerById(mod)
-                        .map(c -> c.getModInfo().getDescription()).orElse("");
-                out.add(new Option(key, ModNames.displayName(mod), firstLine(desc), "", "", new byte[0],
-                        List.of(), takenBy(data, key, player)));
+                out.add(modOption(mod, takenBy(data, "mod:" + mod, player)));
             }
         }
         return out;
+    }
+
+    /** Picker entry for a bundle (also used by Mod Keys). */
+    public static Option bundleOption(ModBundles.Bundle b, String takenBy) {
+        List<String> names = b.members().stream().map(ModNames::displayName).sorted().toList();
+        return new Option("bundle:" + b.id(), b.name(), b.description(), b.icon() == null ? "" : b.icon(),
+                b.imageFile() == null && b.image() != null ? b.image() : "", imageBytes(b), names, takenBy);
+    }
+
+    /** Picker entry for a single mod (also used by Mod Keys and Pure Tomes). */
+    public static Option modOption(String mod, String takenBy) {
+        String desc = ModList.get().getModContainerById(mod).map(c -> c.getModInfo().getDescription()).orElse("");
+        return new Option("mod:" + mod, ModNames.displayName(mod), firstLine(desc), "", "", new byte[0], List.of(), takenBy);
     }
 
     private static Set<String> choosableMods() {
@@ -122,7 +130,7 @@ public final class StartingChoice {
         List<Option> opts = options(server, player.getUUID());
         long available = opts.stream().filter(o -> o.takenBy().isEmpty()).count();
         if (available == 0) return false;
-        ModLockNetwork.openChoice(player, (int) Math.min(count(), available), opts);
+        ModLockNetwork.openChoice(player, PURPOSE, (int) Math.min(count(), available), opts);
         return true;
     }
 

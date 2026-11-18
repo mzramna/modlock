@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
+import dev.modlock.attach.KnowledgeSources;
 import dev.modlock.net.ModLockNetwork;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
@@ -15,6 +16,7 @@ public final class ClientState {
     private static Set<String> mods = Set.of();
     private static Set<String> items = Set.of();
     private static Map<String, String> bundleHint = Map.of();
+    private static KnowledgeSources knowledgeSources = KnowledgeSources.EMPTY;
 
     private static int lockedContainer = -1;
     private static int lockedSlot = -1;
@@ -34,7 +36,17 @@ public final class ClientState {
         bundleHint = Map.copyOf(hints);
     }
 
+    public static void setKnowledgeSources(KnowledgeSources sources) {
+        knowledgeSources = sources;
+    }
+
+    /** Sources of the local player's knowledge effects, by effect id. */
+    public static KnowledgeSources knowledgeSources() {
+        return knowledgeSources;
+    }
+
     public static void reset() {
+        knowledgeSources = KnowledgeSources.EMPTY;
         locked = mods = items = Set.of();
         bundleHint = Map.of();
         setLockedResult(-1, -1, ItemStack.EMPTY);

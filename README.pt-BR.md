@@ -103,7 +103,56 @@ Os addons são resolvidos quando o servidor inicia ou com `/modlock reload`, ent
 | `starting_count`, `show_selection_screen`, `allow_single_mods`, `choosable_mods`, `exclusive`, `announce_choice` | Escolha inicial. |
 | `lock_bundle_members` | Bloqueia os addons de pacotes com mod base bloqueado. |
 | `block_modlock_crafting` | Ninguém pode craftar itens do ModLock, nem a automação. |
-| `loot.enabled`, `loot.tome_bundles` | Itens de liberação nos baús (passam a valer quando os tomos existirem). |
+| `loot.enabled`, `loot.chance`, `loot.tome_bundles` | Tomos Puros nos baús de loot (opcionalmente só tomos ligados a esses pacotes). |
+
+## Itens e efeitos
+
+| | Item | O que faz | Como conseguir |
+|:---:|---|---|---|
+| <img src="docs/items/mod_key.png" width="48"> | **Chave de Mod** | Libera mods ou pacotes **de vez**. Configurada por um OP: TODOS da lista, ESCOLHER N ou SORTEAR N. | Sem receita: criativo, `/modlock give`, recompensa de quest |
+| <img src="docs/items/recipe_scroll.png" width="48"> | **Pergaminho de Receita** | Ensina **um item** — pra sempre ou por um tempo (efeito `Receita: <item>`). Jogadores podem vender receitas dos mods que possuem. | Receita barata |
+| <img src="docs/items/mundane_tome.png" width="48"> | **Tomo Mundano** | **Empresta um mod inteiro** por até 9 h (efeito `Conhecimento: <mod>`). Escrito pelo dono do mod ou por um OP. | Receita cara (estrela do Nether) |
+| <img src="docs/items/pure_tome.png" width="48"> | **Tomo Puro** | Conhecimento de **qualquer mod que você escolher** (ou de um pacote pré-definido) por até 9 h. | Só em baús de loot (ou criativo) |
+| <img src="docs/items/machine_license.png" width="48"> | **Licença de Máquina** | Deixa usar e alimentar à mão **uma máquina** de um mod que você não tem — pra sempre ou por um tempo. | Receita moderada |
+
+<p align="center"><img src="docs/screenshots/creative-tab.png" width="380" alt="Aba criativa do ModLock"></p>
+
+| Configurando uma Chave de Mod | Resgatando (ESCOLHER) |
+|:---:|:---:|
+| <img src="docs/screenshots/config-mod-key.png" width="420"> | <img src="docs/screenshots/choice-mod-key.png" width="420"> |
+
+| Pergaminho de Receita | Tomo Mundano | Licença de Máquina |
+|:---:|:---:|:---:|
+| <img src="docs/screenshots/config-recipe-scroll.png" width="280"> | <img src="docs/screenshots/config-mundane-tome.png" width="280"> | <img src="docs/screenshots/config-machine-license.png" width="280"> |
+| <img src="docs/screenshots/tooltip-recipe-scroll.png" width="280"> | <img src="docs/screenshots/tooltip-mundane-tome.png" width="280"> | <img src="docs/screenshots/tooltip-machine-license.png" width="280"> |
+
+| Efeitos no inventário | Detalhes do efeito | HUD |
+|:---:|:---:|:---:|
+| <img src="docs/screenshots/effects-inventory.png" width="300"> | <img src="docs/screenshots/effect-tooltip.png" width="300"> | <img src="docs/screenshots/effects-hud.png" width="220"> |
+
+### Detalhes
+
+| Item | Configurar (primeiro uso) | Usar |
+|---|---|---|
+| **Chave de Mod** | OPs (`[mod_key] config_permission_level`) ou jogadores no criativo escolhem mods e pacotes bloqueados (`bundle:<id>`), uma quantidade, um modo (**ALL** / **CHOOSE** / **RANDOM**) e um nome opcional, e clicam em **Travar**. Os outros jogadores só recebem uma mensagem. OPs podem agachar + usar pra reconfigurar. | Libera de vez o que o jogador ainda não tem (menos mods livres e, com `exclusive`, o que já é de outro). ALL = tudo, RANDOM = N ao acaso, CHOOSE = tela de escolha. Só é gasta depois de liberar algo; se não sobrar nada, não é gasta. |
+| **Pergaminho de Receita** | OPs: qualquer item de mod bloqueado. Jogadores: só itens de mods bloqueados que eles conseguem craftar agora (pergaminhos permanentes exigem acesso permanente). Lista de itens com busca, PERMANENTE / TEMPORÁRIO, minutos, caixa do leite. | Permanente: o item fica liberado de vez. Temporário: efeito `Receita: <item>`. |
+| **Tomo Mundano** | Jogadores: só mods que têm **permanentemente**. OPs: qualquer mod bloqueado (e uma duração menor). | Empresta o mod: efeito `Conhecimento: <mod>` por `duration_minutes` (540). Quem escreveu não pode ler (`allow_self_use`). |
+| **Tomo Puro** | Nada a configurar; pode estar ligado a um pacote. | Sem pacote: escolha qualquer mod bloqueado que você não tem. Com pacote: conhecimento de todos os membros do pacote (se sua classe puder usá-lo). Opcionalmente permanente. |
+| **Licença de Máquina** | OPs: qualquer bloco com block entity de mod bloqueado. Jogadores: máquinas de mods que têm permanentemente. PERMANENTE / TEMPORÁRIO como o pergaminho. | Deixa o jogador colocar itens à mão naquela máquina (e usá-la no modo estrito). |
+
+O **conhecimento temporário** são efeitos de verdade: `modlock:knowledge/<mod>` pra cada mod, e `modlock:recipe/<mod>/<item>` / `modlock:machine/<mod>/<bloco>` pros mods de `config/modlock-startup.toml` (`recipe_effect_mods = ["*"]`, mantenha igual no servidor e nos clientes). O ícone é o item ou o primeiro item do mod, e o tooltip no inventário mostra a origem, o tempo restante e se o leite remove. O jogador recebe um aviso na action bar antes de acabar, e `/modlock knowledge` lista os efeitos. Jogadores offline não têm efeitos, então o conhecimento temporário não conta pra eles.
+
+| Opção | O que faz |
+|---|---|
+| `[items] op_permission_level` | Quem conta como OP para pergaminhos, tomos e licenças (criativo sempre conta). |
+| `[mod_key] config_permission_level`, `allow_op_reconfigure`, `announce_redeem` | Chave de Mod. |
+| `[recipe_scroll] max_temporary_minutes`, `allow_permanent_by_non_op`, `blacklist_items`, `restricted_mods`, `ops_bypass_restrictions` | Pergaminho de Receita. |
+| `[mundane_tome] duration_minutes`, `op_can_set_duration`, `restriction_mode`, `restricted_mods`, `ops_bypass_restrictions`, `allow_self_use`, `op_tooltip_text` | Tomo Mundano. |
+| `[pure_tome] duration_minutes`, `permanent`, `restriction_mode`, `restricted_mods`, `respect_exclusivity` | Tomo Puro. |
+| `[machine_license] max_temporary_minutes`, `allow_permanent_by_non_op` | Licença de Máquina. |
+| `[temporary_knowledge] stack_mode` (MAX/ADD), `max_minutes`, `warn_before_expire_seconds` | Usar outro item pro mesmo conhecimento: fica o tempo maior ou soma. Itens que não aumentariam o tempo não são gastos. |
+| `[temporary_knowledge.milk] mode` (PER_ITEM/ALWAYS/NEVER), `default_curable`, `unconfigured_curable`, `players_can_choose` | O leite remove o conhecimento? |
+| `config/modlock-startup.toml`: `recipe_effect_mods`, `include_minecraft` | Quais mods ganham efeitos por item / por máquina. |
 
 ## Comandos
 
@@ -114,8 +163,12 @@ Os addons são resolvidos quando o servidor inicia ou com `/modlock reload`, ent
 /modlock resetchoice <jogadores>
 /modlock list [jogador]
 /modlock reload
+/modlock give <jogadores> key <ALL|CHOOSE|RANDOM> <quantidade> <mod,bundle:id,...>
+/modlock give <jogadores> pure_tome [pacote]
+/modlock knowledge [jogador]
+/modlock knowledge clear <jogador> [efeito]
 ```
-Qualquer jogador pode usar `/modlock choose` pra reabrir a tela de escolha enquanto não confirmar.
+Qualquer jogador pode usar `/modlock choose` pra reabrir a tela de escolha enquanto não confirmar, e `/modlock knowledge` pra ver o próprio conhecimento temporário.
 
 ## Perguntas frequentes
 
@@ -127,7 +180,7 @@ Qualquer jogador pode usar `/modlock choose` pra reabrir a tela de escolha enqua
 
 ## Próximas etapas
 
-Chave de Mod (recompensa de quest) → efeitos de conhecimento temporário → Pergaminho de Receita, Tomos e Licença de Máquina → acabamento com JEI/EMI.
+Acabamento com JEI/EMI.
 
 ## Compilando
 
