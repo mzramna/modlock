@@ -28,7 +28,7 @@ import net.neoforged.neoforge.client.extensions.common.IClientMobEffectExtension
 import net.neoforged.neoforge.client.extensions.common.RegisterClientExtensionsEvent;
 
 /** Knowledge effects draw an item instead of an effect sprite, and get a detailed inventory tooltip. */
-@EventBusSubscriber(modid = ModLock.MODID, value = Dist.CLIENT)
+@EventBusSubscriber(modid = ModLock.MODID, value = Dist.CLIENT, bus = EventBusSubscriber.Bus.MOD)
 public final class KnowledgeEffectClient {
     private static final Map<String, ItemStack> MOD_ICONS = new HashMap<>();
 
