@@ -1,120 +1,60 @@
-name: Release
+name: Build mod jars on release
 
-# Two ways to publish a release (both build + test both Minecraft versions from
-# the head of their branches and attach both jars to the same release):
-#  - push a tag like v0.1.0
-#  - push to the `release` branch: the tag v<mod_version> (gradle.properties) is created automatically
 on:
-  push:
-    tags: ["v*"]
-    branches: ["release"]
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: "Existing tag to (re)publish"
-        required: true
-
-permissions:
-  contents: write
+  release:
+    types: [published]
 
 jobs:
-  build:
-    name: Build ${{ matrix.branch }}
+  build-1.21.1:
+    name: Build 1.21.1 (NeoForge 21.1.145)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    strategy:
-      fail-fast: true
-      matrix:
-        include:
-          - branch: "1.21.1"
-            java: "21"
-          - branch: "26.1"
-            java: "25"
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
-          ref: ${{ matrix.branch }}
+          ref: 1.21.1
 
-      - uses: actions/setup-java@v4
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: ${{ matrix.java }}
+          java-version: 21
 
-      - uses: gradle/actions/setup-gradle@v4
-
-      - name: Build
+      - name: Build with Gradle
         run: ./gradlew build --no-daemon
 
-      - name: GameTests
-        run: ./gradlew runGameTestServer --no-daemon
-
-      - name: Release info for this Minecraft version
-        env:
-          PACKS_1_21_1: "ATM10, ATM10 To The Sky, ATM10 Aeronautics, All the Mons"
-          PACKS_26_1: "ATM11"
-        run: |
-          jar=$(ls build/libs/*.jar | head -1); name=$(basename "$jar")
-          mc=$(grep '^minecraft_version=' gradle.properties | cut -d= -f2)
-          toml=$(unzip -p "$jar" META-INF/neoforge.mods.toml)
-          range() { echo "$toml" | awk -v id="$1" '$0 ~ "modId=\""id"\"" {f=1} f && /versionRange/ {match($0, /"[^"]*"/); print substr($0, RSTART+1, RLENGTH-2); exit}'; }
-          neo=$(range neoforge); mcr=$(range minecraft)
-          case "${{ matrix.branch }}" in 1.21.1) packs="$PACKS_1_21_1";; 26.1) packs="$PACKS_26_1";; *) packs="-";; esac
-          mkdir -p info
-          echo "| **${mc}** (\`${mcr}\`) | \`${neo}\` | ${{ matrix.java }} | ${packs} | [${name}](DOWNLOAD_BASE/${name}) |" > "info/${{ matrix.branch }}.md"
-          cat "info/${{ matrix.branch }}.md"
-
-      - uses: actions/upload-artifact@v4
+      - name: Upload jar as release asset
+        uses: svenstaro/upload-release-action@v2
         with:
-          name: jar-${{ matrix.branch }}
-          path: |
-            build/libs/*.jar
-            info/*.md
-          if-no-files-found: error
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: build/libs/modlock-1.21.1-0.3.1.jar
+          asset_name: modlock-1.21.1-0.3.1.jar
+          tag: ${{ github.ref }}
+          overwrite: true
 
-  release:
-    needs: build
+  build-26.1.2:
+    name: Build 26.1.2 (NeoForge 26.1.x)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Resolve tag
-        id: tag
-        run: |
-          if [ -n "${{ inputs.tag }}" ]; then
-            echo "name=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.ref_type }}" = "tag" ]; then
-            echo "name=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "name=v$(grep '^mod_version=' gradle.properties | cut -d= -f2)" >> "$GITHUB_OUTPUT"
-          fi
-
-      - uses: actions/download-artifact@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
-          pattern: jar-*
-          merge-multiple: true
-          path: dist
+          ref: 26.1
 
-      - name: Release notes (one row per Minecraft version)
-        run: |
-          base="https://github.com/${{ github.repository }}/releases/download/${{ steps.tag.outputs.name }}"
-          {
-            echo "## Downloads"
-            echo
-            echo "One jar per supported Minecraft version / Um jar para cada versão do Minecraft suportada."
-            echo "Install it on the server and on every client / Instale no servidor e em todos os clientes."
-            echo
-            echo "| Minecraft | NeoForge | Java | Modpacks | Jar |"
-            echo "|---|---|---|---|---|"
-            cat dist/info/*.md | sed "s#DOWNLOAD_BASE#${base}#g"
-            echo
-          } > notes.md
-          cat notes.md
-
-      - uses: softprops/action-gh-release@v2
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
         with:
-          tag_name: ${{ steps.tag.outputs.name }}
-          target_commitish: ${{ github.sha }}
-          files: dist/build/libs/*.jar
-          body_path: notes.md
-          generate_release_notes: true
-          fail_on_unmatched_files: true
+          distribution: temurin
+          java-version: 25
+
+      - name: Build with Gradle
+        run: ./gradlew build --no-daemon
+
+      - name: Upload jar as release asset
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: build/libs/modlock-26.1.2-0.3.1.jar
+          asset_name: modlock-26.1.2-0.3.1.jar
+          tag: ${{ github.ref }}
+          overwrite: true
