@@ -63,7 +63,7 @@ Bloqueie o craft manual por mod e por jogador, e deixe os jogadores conquistarem
 
 | Minecraft | NeoForge | Java | Modpacks |
 |---|---|---|---|
-| 1.21.1 | 21.1+ | 21 | ATM10, ATM10 To The Sky, ATM10 Aeronautics, All the Mons |
+| 1.21.1 | 21.1.145+ | 21 | ATM10, ATM10 To The Sky, ATM10 Aeronautics, All the Mons |
 | 26.1.2 | 26.1+ | 25 | ATM11 |
 
 Páginas no Modrinth e no CurseForge em breve.
