@@ -34,7 +34,7 @@ import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
 
-@EventBusSubscriber(modid = ModLock.MODID)
+@EventBusSubscriber(modid = ModLock.MODID, bus = EventBusSubscriber.Bus.GAME)
 public final class ServerEvents {
     private ServerEvents() {}
 

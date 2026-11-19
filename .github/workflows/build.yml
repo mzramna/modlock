@@ -8,7 +8,13 @@ on:
 
 jobs:
   build:
+    name: Build (NeoForge ${{ matrix.neo || 'default' }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # default = gradle.properties; 21.1.145 = oldest NeoForge seen in the wild (catches API/bus differences)
+        neo: ["", "21.1.145"]
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -21,13 +27,13 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Build
-        run: ./gradlew build --no-daemon
+        run: ./gradlew build --no-daemon ${{ matrix.neo && format('-Pneo_version={0}', matrix.neo) || '' }}
 
       - name: GameTests
-        run: ./gradlew runGameTestServer --no-daemon
+        run: ./gradlew runGameTestServer --no-daemon ${{ matrix.neo && format('-Pneo_version={0}', matrix.neo) || '' }}
 
       - uses: actions/upload-artifact@v4
         with:
-          name: modlock-${{ github.sha }}
+          name: modlock-${{ github.sha }}-${{ matrix.neo || 'default' }}
           path: build/libs/*.jar
           if-no-files-found: error

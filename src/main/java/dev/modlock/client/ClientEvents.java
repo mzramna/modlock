@@ -22,7 +22,7 @@ import net.neoforged.neoforge.client.event.ContainerScreenEvent;
 import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.event.entity.player.ItemTooltipEvent;
 
-@EventBusSubscriber(modid = ModLock.MODID, value = Dist.CLIENT)
+@EventBusSubscriber(modid = ModLock.MODID, value = Dist.CLIENT, bus = EventBusSubscriber.Bus.GAME)
 public final class ClientEvents {
     private ClientEvents() {}
 

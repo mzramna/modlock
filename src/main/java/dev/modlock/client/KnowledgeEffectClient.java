@@ -28,7 +28,7 @@ import net.neoforged.neoforge.client.extensions.common.IClientMobEffectExtension
 import net.neoforged.neoforge.client.extensions.common.RegisterClientExtensionsEvent;
 
 /** Knowledge effects draw an item instead of an effect sprite, and get a detailed inventory tooltip. */
-@EventBusSubscriber(modid = ModLock.MODID, value = Dist.CLIENT, bus = EventBusSubscriber.Bus.MOD)
+@EventBusSubscriber(modid = ModLock.MODID, value = Dist.CLIENT, bus = EventBusSubscriber.Bus.GAME)
 public final class KnowledgeEffectClient {
     private static final Map<String, ItemStack> MOD_ICONS = new HashMap<>();
 
@@ -66,9 +66,8 @@ public final class KnowledgeEffectClient {
         }
     };
 
-    /** Mod bus (the bus is inferred from the event type). */
-    @SubscribeEvent
-    public static void onRegisterExtensions(RegisterClientExtensionsEvent event) {
+    /** Mod bus: registered from {@link KnowledgeEffectClientMod} (older NeoForge 21.1 builds can't mix buses in one subscriber). */
+    static void onRegisterExtensions(RegisterClientExtensionsEvent event) {
         List<MobEffect> effects = BuiltInRegistries.MOB_EFFECT.stream().filter(e -> e instanceof KnowledgeEffect).toList();
         if (!effects.isEmpty()) event.registerMobEffect(EXTENSIONS, effects.toArray(MobEffect[]::new));
     }
